@@ -1,0 +1,24 @@
+{
+    // IntelliSense を使用して利用可能な属性を学べます。
+    // 既存の属性の説明をホバーして表示します。
+    // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+        "name": "debug_exec", //好きな名前を設定。
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/src/exec_debug",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        },
+        {
+        "name": "debug_serialize", //好きな名前を設定。
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/src/serialize_debug",
+        "args": ["epinions"],
+        "cwd": "${workspaceFolder}",
+        }
+    ]
+}
