@@ -24,7 +24,7 @@ unordered_map<string, string> query_master = {
 };
 
 
-string find_path(char* name, string master_type) {
+string find_path(string name, string master_type) {
     if (master_type == "dataset") {
          // 環境変数からデータセットのパスを読み取る
         string dataset_base_path = getenv("DATASET_BASE_PATH");

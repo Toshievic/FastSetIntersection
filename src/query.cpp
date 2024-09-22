@@ -42,7 +42,7 @@ void Query::info() {
 
 vector<Query> load_queries(string query_sets, bool debug) {
     if (debug) { cout << "----------------- Loading Queries ----------------" << endl; }
-    string dir_path = query_master.at(query_sets);
+    string dir_path = find_path(query_sets, "query");
     vector<string> query_files = get_file_paths(dir_path);
 
     vector<Query> queries;

@@ -13,7 +13,7 @@ extern unordered_map<string,string> dataset_master, query_master;
 
 // name: epinionsやtestなど
 // master_type: dataset or query
-string find_path(char* name, string master_type);
+string find_path(string name, string master_type);
 
 
 #endif
