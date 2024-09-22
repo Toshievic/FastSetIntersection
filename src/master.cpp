@@ -1,8 +1,11 @@
+#include <cstdlib>
+
 #include "../include/master.hpp"
 
 
-string dataset_base_path = "/Users/toshihiroito/datasets/data_for_use/20240715/";
-string query_base_path = "/Users/toshihiroito/implements/WebDB2024/query/";
+// 環境変数からデータセット・クエリのパスを読み取る
+string dataset_base_path = getenv("DATASET_BASE_PATH");
+string query_base_path = getenv("QUERY_BASE_PATH");
 
 unordered_map<string, string> dataset_master = {
     {"epinions", dataset_base_path+"epinions/"},
