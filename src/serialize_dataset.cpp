@@ -2,6 +2,7 @@
 #include "../include/util.hpp"
 
 #include <unordered_set>
+#include <cstdlib>
 
 
 int main(int argc, char* argv[]) {
@@ -9,13 +10,13 @@ int main(int argc, char* argv[]) {
         cerr << "Usage: " << argv[0] << " <dataset_name>" << endl;
         exit(1);
     }
-    string data_dir = dataset_master.at(argv[1]);
+    string data_dir = find_path(argv[1], "dataset");
 
     // 頂点データの読み込み
     unordered_map<unsigned,unsigned> vertices; // 頂点idと頂点ラベルの対応
     unordered_set<int> num_v_labels; // 頂点ラベルの種類数
 
-    string vertex_file = data_dir + "vertex_label.csv";
+    string vertex_file = data_dir + "vertices.csv";
     ifstream ifs_v_file(vertex_file);
     vector<vector<unsigned>> table = read_csv(ifs_v_file, ',');
 
@@ -31,7 +32,7 @@ int main(int argc, char* argv[]) {
     unordered_map<unsigned, vector<unsigned>> adjlist;
     unordered_set<int> num_e_labels;
 
-    string edge_file = data_dir + "edge_label.csv";
+    string edge_file = data_dir + "edges.csv";
     ifstream ifs_e_file(edge_file);
     table = read_csv(ifs_e_file, ',');
     vector<unsigned> empty_v;
@@ -65,18 +66,20 @@ int main(int argc, char* argv[]) {
     unsigned scan_v_crs_len = 2 * num_e_labels.size() * num_v_labels.size() * num_v_labels.size();
     unsigned al_v_crs_len = 2 * num_e_labels.size() * num_v_labels.size() * vertices.size();
 
+    string workdir_path = getenv("WORKDIR_PATH");
+
     ofstream fout1, fout2, fout3;
-    fout1.open("/Users/toshihiroito/implements/WebDB2024/data/scan_v_crs.bin", ios::out|ios::binary|ios::trunc);
+    fout1.open(workdir_path + "data/scan_v_crs.bin", ios::out|ios::binary|ios::trunc);
     if (!fout1) {
         cout << "Cannot open file." << endl;
         exit(1);
     }
-    fout2.open("/Users/toshihiroito/implements/WebDB2024/data/scan_src_crs.bin", ios::out|ios::binary|ios::trunc);
+    fout2.open(workdir_path + "data/scan_src_crs.bin", ios::out|ios::binary|ios::trunc);
     if (!fout2) {
         cout << "Cannot open file." << endl;
         exit(1);
     }
-    fout3.open("/Users/toshihiroito/implements/WebDB2024/data/scan_dst_crs.bin", ios::out|ios::binary|ios::trunc);
+    fout3.open(workdir_path + "data/scan_dst_crs.bin", ios::out|ios::binary|ios::trunc);
     if (!fout3) {
         cout << "Cannot open file." << endl;
         exit(1);
@@ -101,12 +104,12 @@ int main(int argc, char* argv[]) {
     fout2.close();
     fout3.close();
 
-    fout1.open("/Users/toshihiroito/implements/WebDB2024/data/al_v_crs.bin", ios::out|ios::binary|ios::trunc);
+    fout1.open(workdir_path + "data/al_v_crs.bin", ios::out|ios::binary|ios::trunc);
     if (!fout1) {
         cout << "Cannot open file." << endl;
         exit(1);
     }
-    fout2.open("/Users/toshihiroito/implements/WebDB2024/data/al_e_crs.bin", ios::out|ios::binary|ios::trunc);
+    fout2.open(workdir_path + "data/al_e_crs.bin", ios::out|ios::binary|ios::trunc);
     if (!fout2) {
         cout << "Cannot open file." << endl;
         exit(1);
@@ -131,7 +134,7 @@ int main(int argc, char* argv[]) {
     fout2.close();
 
 
-    fout1.open("/Users/toshihiroito/implements/WebDB2024/data/data_info.txt", ios::out|ios::trunc);
+    fout1.open(workdir_path + "data/data_info.txt", ios::out|ios::trunc);
     if (!fout1) {
         cout << "Cannot open file." << endl;
         exit(1);
