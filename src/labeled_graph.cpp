@@ -3,17 +3,20 @@
 
 #include <numeric>
 #include <unordered_set>
+#include <queue>
+#include <cstdlib>
 
 
 const unsigned BUFFER_SIZE = 1024;
 
 void LabeledGraph::load() {
-    char info_file[] = "/Users/toshihiroito/implements/WebDB2024/data/data_info.txt";
-    char scan_v_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_v_crs.bin";
-    char scan_src_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_src_crs.bin";
-    char scan_dst_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_dst_crs.bin";
-    char al_v_file[] = "/Users/toshihiroito/implements/WebDB2024/data/al_v_crs.bin";
-    char al_e_file[] = "/Users/toshihiroito/implements/WebDB2024/data/al_e_crs.bin";
+    string workdir_path = getenv("WORKDIR_PATH");
+    string info_file = workdir_path + "data/data_info.txt";
+    string scan_v_file = workdir_path + "data/scan_v_crs.bin";
+    string scan_src_file = workdir_path + "data/scan_src_crs.bin";
+    string scan_dst_file = workdir_path + "data/scan_dst_crs.bin";
+    string al_v_file = workdir_path + "data/al_v_crs.bin";
+    string al_e_file = workdir_path + "data/al_e_crs.bin";
 
     // infoの読み込み
     ifstream fin_info(info_file, ios::in);
@@ -148,6 +151,38 @@ void LabeledGraph::load() {
             // k=隣接頂点 mod BITSET_SIZEとして, k番目のbitを1にする
             unsigned h = al_e_crs[j] & (BITSET_SIZE-1);
                 adj_bs[i-1].set(h);
+        }
+    }
+
+    set_dists(0);
+}
+
+
+void LabeledGraph::set_dists(unsigned root_id) {
+    dists = new unsigned[num_v];
+    for (int i=0; i<num_v; ++i) {
+        dists[i] = -1; // -1は初期値
+    }
+    queue<unsigned> q;
+
+    dists[root_id] = 0;
+    q.push(root_id);
+    int counter = 0;
+
+    while (!q.empty()) {
+        unsigned v = q.front();
+        q.pop();
+
+        for (int i=0; i<2*num_vl*num_el; ++i) {
+            unsigned start = al_v_crs[num_v*i+v];
+            unsigned end = al_v_crs[num_v*i+v+1];
+            for (unsigned p=start; p<end; ++p) {
+                if (dists[al_e_crs[p]] == -1) { // 未訪問であれば
+                    dists[al_e_crs[p]] = dists[v] + 1;
+                    q.push(al_e_crs[p]);
+                    if (dists[v] == 0) { ++counter; }
+                }
+            }
         }
     }
 }

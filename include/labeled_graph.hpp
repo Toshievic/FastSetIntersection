@@ -24,11 +24,14 @@ public:
     unsigned *al_v_crs;
     unsigned *al_e_crs;
     bitset<BITSET_SIZE> *adj_bs;
+    // ある頂点から各頂点の最短距離を計算 (グラフの向きは一旦考慮しない)
+    unsigned *dists;
 
     LabeledGraph() {}
     LabeledGraph(bool b) { debug = b; }
 
     void load();
+    void set_dists(unsigned root_id);
 };
 
 #endif
