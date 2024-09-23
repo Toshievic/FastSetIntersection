@@ -15,7 +15,8 @@ public:
     unordered_map<string,int> method_dict = {
         {"multiway", 0},
         {"pairwise", 1},
-        {"bitset", 2}
+        {"bitset", 2},
+        {"2hop", 3}
     };
     int method_id;
     unordered_map<string,string> stat;
@@ -67,6 +68,7 @@ public:
     virtual void find_assignables(int current_depth); // 一気に全部intersection
     virtual void find_assignables_v2(int current_depth); // binary intersection
     virtual void find_assignables_with_bitset(int current_depth); // binary intersection
+    virtual void find_assignables_with_2hop(int current_depth); // 2-hop index
 
     void summarize();
 };

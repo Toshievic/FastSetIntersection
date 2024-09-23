@@ -175,6 +175,9 @@ void GenericJoin::recursive_join(int current_depth) {
         case 2:
             find_assignables_with_bitset(current_depth);
             break;
+        case 3:
+            find_assignables_with_2hop(current_depth);
+            break;
         default:
             find_assignables(current_depth);
             break;
@@ -447,9 +450,88 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
     // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
 
     if (match_num == 0) {
-    //     empty_runtime[current_depth] += get_msec_runtime(&start, &end);
+    //  empty_runtime[current_depth] += get_msec_runtime(&start, &end);
         ++empty_num[current_depth];
     }
+}
+
+
+void GenericJoin::find_assignables_with_2hop(int current_depth) {
+    int vir_depth = current_depth-2;
+    if (cache_available.contains(current_depth) && cache_available[current_depth]) {
+        return;
+    }
+
+    int arr_num = descriptors[vir_depth].size();
+    match_nums[vir_depth] = 0;
+
+    if (arr_num == 1) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][0];
+        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
+        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        intersection_result[vir_depth].assign(first,last);
+        match_nums[vir_depth] = last - first;
+        if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
+        return;
+    }
+    
+    // Chrono_t start = get_time();
+    for (int i=0; i<arr_num; ++i) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
+        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        if (first == last) {
+            if (cache_available.contains(current_depth)) {
+                cache_available[current_depth] = true;
+            }
+            ++empty_num[current_depth];
+            return;
+        }
+        indices[i] = {first, last};
+        // al_len_total += last-first;
+    }
+    ++intersection_count;
+
+    //2. Sort indexes by their first value and do some initial iterators book-keeping!
+    sort(indices, indices+arr_num,
+        [&](const pair<unsigned*,unsigned*> &a,
+        const pair<unsigned*,unsigned*> &b) { return *a.first < *b.first; });
+
+    int it = 0;
+    int match_num = 0;
+    pair<unsigned*,unsigned*> *its = &indices[it];
+    unsigned max = *indices[arr_num-1].first;
+    bool b = false;
+
+    // ++update_num[current_depth];
+    while (true) {
+        if (*its->first == max) {
+            intersection_result[vir_depth][match_num] = max;
+            ++match_num;
+            if (++its->first == its->second) { break; }
+        }
+        while (*its->first < max) {
+            if (++its->first == its->second) {
+                b = true;
+                break;
+            }
+        }
+        if (b) { break; }
+        max = *its->first;
+        // if文でitがarr_num-1を超えないようにする
+        if (++it > arr_num-1) { it = 0; }
+        
+        its = &indices[it];
+    }
+    match_nums[vir_depth] = match_num;
+    if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
+
+    // Chrono_t end = get_time();
+    // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+    if (match_num == 0) { ++empty_num[current_depth]; }
+    // match_num_total += match_num*2;
 }
 
 
