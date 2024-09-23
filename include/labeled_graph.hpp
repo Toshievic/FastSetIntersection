@@ -24,11 +24,14 @@ public:
     unsigned *al_v_crs;
     unsigned *al_e_crs;
     bitset<BITSET_SIZE> *adj_bs;
+    unsigned *twohop_v_crs;
+    unsigned *twohop_e_crs;
 
     LabeledGraph() {}
     LabeledGraph(bool b) { debug = b; }
 
     void load();
+    void create_twohop_index();
 };
 
 #endif

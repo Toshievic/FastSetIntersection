@@ -3,17 +3,20 @@
 
 #include <numeric>
 #include <unordered_set>
+#include <set>
+#include <cstring>
 
 
 const unsigned BUFFER_SIZE = 1024;
 
 void LabeledGraph::load() {
-    char info_file[] = "/Users/toshihiroito/implements/WebDB2024/data/data_info.txt";
-    char scan_v_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_v_crs.bin";
-    char scan_src_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_src_crs.bin";
-    char scan_dst_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_dst_crs.bin";
-    char al_v_file[] = "/Users/toshihiroito/implements/WebDB2024/data/al_v_crs.bin";
-    char al_e_file[] = "/Users/toshihiroito/implements/WebDB2024/data/al_e_crs.bin";
+    string workdir_path = getenv("WORKDIR_PATH");
+    string info_file = workdir_path + "data/data_info.txt";
+    string scan_v_file = workdir_path + "data/scan_v_crs.bin";
+    string scan_src_file = workdir_path + "data/scan_src_crs.bin";
+    string scan_dst_file = workdir_path + "data/scan_dst_crs.bin";
+    string al_v_file = workdir_path + "data/al_v_crs.bin";
+    string al_e_file = workdir_path + "data/al_e_crs.bin";
 
     // infoの読み込み
     ifstream fin_info(info_file, ios::in);
@@ -150,4 +153,48 @@ void LabeledGraph::load() {
                 adj_bs[i-1].set(h);
         }
     }
+
+    create_twohop_index();
+}
+
+
+void LabeledGraph::create_twohop_index() {
+    twohop_v_crs = new unsigned[num_v+1];
+    vector<vector<unsigned>> twohop_index(num_v);
+    twohop_v_crs[0] = 0;
+    unsigned long size_total = 0;
+    for (int i=0; i<num_v; ++i) {
+        // 隣接する頂点を列挙
+        unordered_set<unsigned> neighbors;
+        for (int j=0; j<2*num_vl*num_el; ++j) {
+            unsigned start = al_v_crs[num_v*j+i];
+            unsigned end = al_v_crs[num_v*j+i+1];
+            for (unsigned p=start; p<end; ++p) { neighbors.insert(al_e_crs[p]); }
+        }
+        // 2-hop setの列挙
+        set<unsigned> two_hops;
+        for (auto &n: neighbors) {
+            for (int j=0; j<2*num_vl*num_el; ++j) {
+                unsigned start = al_v_crs[num_v*j+n];
+                unsigned end = al_v_crs[num_v*j+n+1];
+                for (unsigned p=start; p<end; ++p) {
+                    if (al_e_crs[p] != i) { two_hops.insert(al_e_crs[p]); }
+                }
+            }
+        }
+        // twohop_indexへ入れる
+        twohop_index[i].assign(two_hops.begin(), two_hops.end());
+        sort(twohop_index[i].begin(), twohop_index[i].end());
+        size_total += twohop_index[i].size();
+        twohop_v_crs[i+1] = size_total;
+    }
+
+    twohop_e_crs = new unsigned[size_total];
+    unsigned long current_ptr = 0;
+    for (int i=0; i<num_v; ++i) {
+        memcpy(twohop_e_crs+current_ptr, twohop_index[i].data(), twohop_index[i].size()*sizeof(unsigned));
+    }
+
+    // 2-hop indexのサイズを確認してみる
+    cout << "Total size: " << size_total << endl << "num_v: " << num_v << endl << "fill rate: " << (float) size_total / (num_v*num_v) << endl;
 }

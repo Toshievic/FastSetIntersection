@@ -10,6 +10,7 @@
         "request": "launch",
         "program": "${workspaceFolder}/src/exec_debug",
         "args": [],
+        "envFile": "${workspaceFolder}/.env",
         "cwd": "${workspaceFolder}",
         },
         {
@@ -18,6 +19,7 @@
         "request": "launch",
         "program": "${workspaceFolder}/src/serialize_debug",
         "args": ["epinions"],
+        "envFile": "${workspaceFolder}/.env",
         "cwd": "${workspaceFolder}",
         }
     ]
