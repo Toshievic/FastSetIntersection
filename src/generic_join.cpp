@@ -220,8 +220,7 @@ void GenericJoin::find_assignables(int current_depth) {
         return;
     }
     
-    ++intersection_count;
-    Chrono_t start = get_time();
+    // Chrono_t start = get_time();
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
@@ -237,6 +236,7 @@ void GenericJoin::find_assignables(int current_depth) {
         indices[i] = {first, last};
         // al_len_total += last-first;
     }
+    ++intersection_count;
 
     //2. Sort indexes by their first value and do some initial iterators book-keeping!
     sort(indices, indices+arr_num,
@@ -272,8 +272,8 @@ void GenericJoin::find_assignables(int current_depth) {
     match_nums[vir_depth] = match_num;
     if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
 
-    Chrono_t end = get_time();
-    lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+    // Chrono_t end = get_time();
+    // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
     if (match_num == 0) { ++empty_num[current_depth]; }
     // match_num_total += match_num*2;
 }
@@ -310,6 +310,7 @@ void GenericJoin::find_assignables_v2(int current_depth) {
         indices[i] = {first, last};
     }
 
+    ++intersection_count;
     //2. Sort indexes by their first value and do some initial iterators book-keeping!
     sort(indices, indices+arr_num,
         [&](const pair<unsigned*,unsigned*> &a,
@@ -390,9 +391,6 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;
             }
-            ++intersection_count;
-            
-            ++empty_num[current_depth];
             return;
         }
         bit_num_stat[max_onebits] += 1;
@@ -404,7 +402,6 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;
             }
-            ++empty_num[current_depth];
             return;
         }
         indices[i] = {first, last};
