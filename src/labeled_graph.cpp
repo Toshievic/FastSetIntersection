@@ -193,6 +193,7 @@ void LabeledGraph::create_twohop_index() {
     unsigned long current_ptr = 0;
     for (int i=0; i<num_v; ++i) {
         memcpy(twohop_e_crs+current_ptr, twohop_index[i].data(), twohop_index[i].size()*sizeof(unsigned));
+        current_ptr += twohop_index[i].size();
     }
 
     // 2-hop indexのサイズを確認してみる
