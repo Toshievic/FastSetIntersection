@@ -159,43 +159,39 @@ void LabeledGraph::load() {
 
 
 void LabeledGraph::create_twohop_index() {
-    twohop_v_crs = new unsigned[num_v+1];
-    vector<vector<unsigned>> twohop_index(num_v);
-    twohop_v_crs[0] = 0;
     unsigned long size_total = 0;
-    for (int i=0; i<num_v; ++i) {
-        // 隣接する頂点を列挙
-        unordered_set<unsigned> neighbors;
-        for (int j=0; j<2*num_vl*num_el; ++j) {
-            unsigned start = al_v_crs[num_v*j+i];
-            unsigned end = al_v_crs[num_v*j+i+1];
-            for (unsigned p=start; p<end; ++p) { neighbors.insert(al_e_crs[p]); }
-        }
-        // 2-hop setの列挙
-        set<unsigned> two_hops;
-        for (auto &n: neighbors) {
-            for (int j=0; j<2*num_vl*num_el; ++j) {
-                unsigned start = al_v_crs[num_v*j+n];
-                unsigned end = al_v_crs[num_v*j+n+1];
-                for (unsigned p=start; p<end; ++p) {
-                    if (al_e_crs[p] != i) { two_hops.insert(al_e_crs[p]); }
+
+    for (int v=0; v<num_v; ++v) {
+        // ある方向で隣接する頂点を列挙
+        for (int dir0=0; dir0<2; ++dir0) {
+            unordered_set<unsigned> neighbors;
+            unsigned start = al_v_crs[num_v*dir0+v];
+            unsigned end = al_v_crs[num_v*dir0+v+1];
+            for (unsigned i=start; i<end; ++i) { neighbors.insert(al_e_crs[i]); }
+            if (neighbors.size() == 0) { continue; }
+            // 2-hop setの列挙
+            for (int dir1=0; dir1<2; ++dir1) {
+                // 2-hop indexに保存するキーのフォーマット: 頂点ID(binary)+dir0(1bit)+dir1(1bit)
+                unsigned key = (((v<<1)+dir0)<<1) + dir1;
+                set<unsigned> two_hops;
+                for (auto &n : neighbors) {
+                    unsigned start = al_v_crs[num_v*dir1+n];
+                    unsigned end = al_v_crs[num_v*dir1+n+1];
+                    for (unsigned i=start; i<end; ++i) {
+                        if (al_e_crs[i] != v) { two_hops.insert(al_e_crs[i]); }
+                    }
                 }
+                if (two_hops.size() == 0) { continue; }
+                // 2-hop indexへ追加
+                size_total += two_hops.size();
+                vector<unsigned> arr(two_hops.size());
+                twohop_idx.insert(unordered_map<unsigned, vector<unsigned>>::value_type (key, arr));
+                twohop_idx[key].assign(two_hops.begin(), two_hops.end());
             }
         }
-        // twohop_indexへ入れる
-        twohop_index[i].assign(two_hops.begin(), two_hops.end());
-        sort(twohop_index[i].begin(), twohop_index[i].end());
-        size_total += twohop_index[i].size();
-        twohop_v_crs[i+1] = size_total;
-    }
-
-    twohop_e_crs = new unsigned[size_total];
-    unsigned long current_ptr = 0;
-    for (int i=0; i<num_v; ++i) {
-        memcpy(twohop_e_crs+current_ptr, twohop_index[i].data(), twohop_index[i].size()*sizeof(unsigned));
-        current_ptr += twohop_index[i].size();
     }
 
     // 2-hop indexのサイズを確認してみる
+    cout << "Total keys: " << twohop_idx.size() << endl;
     cout << "Total size: " << size_total << endl << "num_v: " << num_v << endl << "fill rate: " << (float) size_total / (num_v*num_v) << endl;
 }

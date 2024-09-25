@@ -26,6 +26,7 @@ public:
     bitset<BITSET_SIZE> *adj_bs;
     unsigned *twohop_v_crs;
     unsigned *twohop_e_crs;
+    unordered_map<unsigned, vector<unsigned>> twohop_idx;
 
     LabeledGraph() {}
     LabeledGraph(bool b) { debug = b; }
