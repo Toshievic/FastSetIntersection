@@ -62,6 +62,7 @@ void GenericJoin::setup() {
     }
     // indicesの配列長は固定のため、考えうるintersection処理を行う最大のリスト数分の領域を確保
     indices = new pair<unsigned*,unsigned*>[max_size];
+    validate_pool.resize(max_size);
 
     intersection_result = new vector<unsigned>[num_variables-2];
     match_nums = new unsigned[num_variables-2];
@@ -234,6 +235,7 @@ void GenericJoin::find_assignables(int current_depth) {
                 cache_available[current_depth] = true;
             }
             ++empty_num[current_depth];
+            ++intersection_count;
             return;
         }
         indices[i] = {first, last};
@@ -382,7 +384,7 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
         return;
     }
 
-    // Chrono_t start = get_time();
+    Chrono_t start = get_time();
     int max_onebits = 0;
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
@@ -409,6 +411,8 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
         }
         indices[i] = {first, last};
     }
+    Chrono_t end = get_time();
+    lev_runtime[current_depth] += get_msec_runtime(&start, &end);
     ++intersection_count;
 
     //2. Sort indexes by their first value and do some initial iterators book-keeping!
@@ -446,9 +450,6 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
     match_nums[vir_depth] = match_num;
     if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
 
-    // Chrono_t end = get_time();
-    // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
-
     if (match_num == 0) {
     //  empty_runtime[current_depth] += get_msec_runtime(&start, &end);
         ++empty_num[current_depth];
@@ -476,9 +477,28 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
         return;
     }
     
-    // Chrono_t start = get_time();
+    Chrono_t start = get_time();
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        for (int j=0; j<i; ++j) {
+            unsigned key = (((keys[src]<<1)+dir)<<1)+(validate_pool[j].second^1);
+            if (lg->twohop_idx.contains(key)) {
+                if (!binary_search(lg->twohop_idx[key].begin(), lg->twohop_idx[key].end(), keys[validate_pool[j].first])) {
+                    if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
+                    Chrono_t end = get_time();
+                    lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+                    return;
+                }
+            }
+            else {
+                if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
+                Chrono_t end = get_time();
+                lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+                return;
+            }
+        }
+        validate_pool[i] = {src,dir};
+        
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
         unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
         unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
@@ -486,12 +506,15 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;
             }
-            ++empty_num[current_depth];
+            Chrono_t end = get_time();
+            lev_runtime[current_depth] += get_msec_runtime(&start, &end);
             return;
         }
         indices[i] = {first, last};
         // al_len_total += last-first;
     }
+    Chrono_t end = get_time();
+    lev_runtime[current_depth] += get_msec_runtime(&start, &end);
     ++intersection_count;
 
     //2. Sort indexes by their first value and do some initial iterators book-keeping!
@@ -528,8 +551,6 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
     match_nums[vir_depth] = match_num;
     if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
 
-    // Chrono_t end = get_time();
-    // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
     if (match_num == 0) { ++empty_num[current_depth]; }
     // match_num_total += match_num*2;
 }
@@ -553,7 +574,7 @@ void GenericJoin::summarize() {
     cout << "number of intermediate tuples:\t" << intersection_count << endl;
 
     cout << "--- Details ---" << endl;
-    // cout << "No interseciton counts of each depth:\t\t\t" << endl;
+    // cout << "No intersection counts of each depth:\t\t\t" << endl;
     // print(empty_num);
     // unsigned total = 0;
     // for (auto &itr : empty_num) { total += itr.second; }
@@ -561,13 +582,13 @@ void GenericJoin::summarize() {
     // stat["empty_num"] = to_string(total);
     // cout << "No need: " << to_string((double)(al_len_total - match_num_total)/al_len_total) << endl;
 
-    // cout << "The interseciton counts of each depth:\t\t\t" << endl;
+    // cout << "The intersection counts of each depth:\t\t\t" << endl;
     // print(update_num);
     // total = 0;
     // for (auto &itr : update_num) { total += itr.second; }
     // cout << "Total: " << total << endl;
 
-    // cout << "No interseciton of each depth:\t\t\t" << endl;
+    // cout << "No intersection of each depth:\t\t\t" << endl;
     // print(empty_runtime);
     // double total_d = 0;
     // for (auto &itr : empty_runtime) { total_d += itr.second; }

@@ -32,6 +32,7 @@ public:
     vector<vector<tuple<int,int,int,int>>> descriptors;
 
     pair<unsigned*, unsigned*> *indices;
+    vector<pair<int,int>> validate_pool;
 
     vector<unsigned> scanned_srcs;
     vector<unsigned> scanned_dsts;

@@ -165,9 +165,11 @@ void LabeledGraph::create_twohop_index() {
         // ある方向で隣接する頂点を列挙
         for (int dir0=0; dir0<2; ++dir0) {
             unordered_set<unsigned> neighbors;
-            unsigned start = al_v_crs[num_v*dir0+v];
-            unsigned end = al_v_crs[num_v*dir0+v+1];
-            for (unsigned i=start; i<end; ++i) { neighbors.insert(al_e_crs[i]); }
+            for (int i=0; i<num_vl*num_el; ++i) {
+                unsigned start = al_v_crs[num_v*(dir0*num_el*num_vl+i)+v];
+                unsigned end = al_v_crs[num_v*(dir0*num_el*num_vl+i)+v+1];
+                for (unsigned p=start; p<end; ++p) { neighbors.insert(al_e_crs[p]); }
+            }
             if (neighbors.size() == 0) { continue; }
             // 2-hop setの列挙
             for (int dir1=0; dir1<2; ++dir1) {
@@ -175,10 +177,10 @@ void LabeledGraph::create_twohop_index() {
                 unsigned key = (((v<<1)+dir0)<<1) + dir1;
                 set<unsigned> two_hops;
                 for (auto &n : neighbors) {
-                    unsigned start = al_v_crs[num_v*dir1+n];
-                    unsigned end = al_v_crs[num_v*dir1+n+1];
-                    for (unsigned i=start; i<end; ++i) {
-                        if (al_e_crs[i] != v) { two_hops.insert(al_e_crs[i]); }
+                    for (int i=0; i<num_vl*num_el; ++i) {
+                        unsigned start = al_v_crs[num_v*(dir1*num_el*num_vl+i)+n];
+                        unsigned end = al_v_crs[num_v*(dir1*num_el*num_vl+i)+n+1];
+                        for (unsigned p=start; p<end; ++p) { two_hops.insert(al_e_crs[p]); }
                     }
                 }
                 if (two_hops.size() == 0) { continue; }
