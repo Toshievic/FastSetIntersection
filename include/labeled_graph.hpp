@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <bitset>
+#include <unordered_set>
 
 #define BITSET_SIZE 1024
 
@@ -26,13 +27,12 @@ public:
     bitset<BITSET_SIZE> *adj_bs;
     unsigned *twohop_v_crs;
     unsigned *twohop_e_crs;
-    unordered_map<unsigned, vector<unsigned>> twohop_idx;
+    unordered_set<unsigned long long> twohop_idx;
 
     LabeledGraph() {}
     LabeledGraph(bool b) { debug = b; }
 
     void load();
-    void create_twohop_index();
 };
 
 #endif

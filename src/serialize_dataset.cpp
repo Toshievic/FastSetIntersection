@@ -38,13 +38,15 @@ int main(int argc, char* argv[]) {
     vector<unsigned> empty_v;
     vector<pair<unsigned,unsigned>> empty_pair;
 
+    // num_e_labelsの特定のみ先に行う
+    for (int i=0; i<table.size(); ++i) { num_e_labels.insert(table[i][2]); }
+
     for (int i=0; i<table.size(); ++i) {
         unsigned src_id = table[i][0];
         unsigned dst_id = table[i][1];
         unsigned edge_label = table[i][2];
         int src_label = vertices[src_id];
         int dst_label = vertices[dst_id];
-        num_e_labels.insert(edge_label);
 
         unsigned fwd_scan_key = num_v_labels.size() * (num_v_labels.size() * (0 * num_e_labels.size() + edge_label) + src_label) + dst_label;
         unsigned bwd_scan_key = num_v_labels.size() * (num_v_labels.size() * (1 * num_e_labels.size() + edge_label) + dst_label) + src_label;
@@ -60,6 +62,41 @@ int main(int argc, char* argv[]) {
         scanned_edges[bwd_scan_key].push_back({dst_id,src_id});
         adjlist[fwd_al_key].push_back(dst_id);
         adjlist[bwd_al_key].push_back(src_id);
+    }
+
+    // adjlistを用いて2-hop indexを作成
+    vector<unsigned long long> twohop_idx;
+    for (auto &v: vertices) {
+        // ある方向で隣接する頂点を列挙
+        for (int dir0=0; dir0<2; ++dir0) {
+            unordered_set<unsigned> neighbors;
+            for (int i=0; i<num_v_labels.size()*num_e_labels.size(); ++i) {
+                unsigned key = vertices.size()*(dir0*num_v_labels.size()*num_e_labels.size()+i)+v.first;
+                for (int j=0; j<adjlist[key].size(); ++j) {
+                    neighbors.insert(adjlist[key][j]);
+                }
+            }
+            if (neighbors.size() == 0) { continue; }
+            // 2-hop setの列挙
+            for (int dir1=0; dir1<2; ++dir1) {
+                unordered_set<unsigned> two_hops;
+                for (auto &n : neighbors) {
+                    for (int i=0; i<num_v_labels.size()*num_e_labels.size(); ++i) {
+                        unsigned key = vertices.size()*(dir1*num_v_labels.size()*num_e_labels.size()+i)+n;
+                        for (int j=0; j<adjlist[key].size(); ++j) {
+                            two_hops.insert(adjlist[key][j]);
+                        }
+                    }
+                }
+                // 2-hop indexへ追加
+                for (auto &n : two_hops) {
+                    // 2-hop indexに保存するキーのフォーマット: 元頂点ID(31bit)+隣接頂点ID(31bit)+dir0(1bit)+dir1(1bit)
+                    unsigned long long key = v.first;
+                    key = (key<<33)+(n<<2)+(dir0<<1)+dir1;
+                    twohop_idx.push_back(key);
+                }
+            }
+        }
     }
 
     // v_crsの要素数を決定
@@ -114,6 +151,11 @@ int main(int argc, char* argv[]) {
         cout << "Cannot open file." << endl;
         exit(1);
     }
+    fout3.open(workdir_path + "data/2hop_index.bin", ios::out|ios::binary|ios::trunc);
+    if (!fout3) {
+        cout << "Cannot open file." << endl;
+        exit(1);
+    }
 
     current_ptr = 0;
     for (int i=0; i<al_v_crs_len; ++i) {
@@ -128,10 +170,19 @@ int main(int argc, char* argv[]) {
     }
     fout1.write((const char *) &current_ptr, sizeof(unsigned));
 
+    for (int i=0; i<twohop_idx.size(); ++i) {
+        fout3.write((const char *) &twohop_idx[i], sizeof(unsigned long long));
+    }
+
+    cout << "num_v: " << vertices.size() << endl;
+    cout << "num_e: " << table.size() << endl;
     cout << "size of al_v_crs: " << al_v_crs_len+1 << endl;
     cout << "size of al_e_crs: " << current_ptr << endl;
+    cout << "size of 2-hop index: " << twohop_idx.size() << endl;
+    cout << "Filling rate: " << (float) twohop_idx.size() / (vertices.size()*vertices.size()*4) << endl;
     fout1.close();
     fout2.close();
+    fout3.close();
 
 
     fout1.open(workdir_path + "data/data_info.txt", ios::out|ios::trunc);

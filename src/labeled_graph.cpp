@@ -17,6 +17,7 @@ void LabeledGraph::load() {
     string scan_dst_file = workdir_path + "data/scan_dst_crs.bin";
     string al_v_file = workdir_path + "data/al_v_crs.bin";
     string al_e_file = workdir_path + "data/al_e_crs.bin";
+    string twohop_file = workdir_path + "data/2hop_index.bin";
 
     // infoの読み込み
     ifstream fin_info(info_file, ios::in);
@@ -101,14 +102,21 @@ void LabeledGraph::load() {
         cout << "Cannot open file: " << al_e_file << endl;
         exit(1);
     }
+    ifstream fin_2h(twohop_file, ios::in|ifstream::ate|ios::binary);
+    if (!fin_ae) {
+        cout << "Cannot open file: " << twohop_file << endl;
+        exit(1);
+    }
 
     unsigned av_size = static_cast<size_t>(fin_av.tellg()) / sizeof(unsigned);
     unsigned ae_size = static_cast<size_t>(fin_ae.tellg()) / sizeof(unsigned);
+    unsigned th_size = static_cast<size_t>(fin_2h.tellg()) / sizeof(unsigned long long);
     al_v_crs = new unsigned[av_size];
     al_e_crs = new unsigned[ae_size];
 
     fin_av.seekg(0);
     fin_ae.seekg(0);
+    fin_2h.seekg(0);
 
     current_ptr = 0;
     at_end = false;
@@ -135,8 +143,22 @@ void LabeledGraph::load() {
         current_ptr += BUFFER_SIZE;
     }
 
+    at_end = false;
+    unsigned long long tmp[BUFFER_SIZE];
+    while (!at_end) {
+        unsigned num_block = BUFFER_SIZE;
+        if (current_ptr + BUFFER_SIZE > th_size) {
+            num_block = th_size - current_ptr;
+            at_end = true;
+        }
+        fin_2h.read(reinterpret_cast<char*>(tmp), num_block*sizeof(unsigned long long));
+        for (int i=0; i<num_block; ++i) { twohop_idx.insert(tmp[i]); }
+        current_ptr += BUFFER_SIZE;
+    }
+
     fin_av.close();
     fin_ae.close();
+    fin_2h.close();
 
     // adj_bs,max_degreeを作成
     adj_bs = new bitset<BITSET_SIZE>[al_v_crs_size];
@@ -153,47 +175,4 @@ void LabeledGraph::load() {
                 adj_bs[i-1].set(h);
         }
     }
-
-    create_twohop_index();
-}
-
-
-void LabeledGraph::create_twohop_index() {
-    unsigned long size_total = 0;
-
-    for (int v=0; v<num_v; ++v) {
-        // ある方向で隣接する頂点を列挙
-        for (int dir0=0; dir0<2; ++dir0) {
-            unordered_set<unsigned> neighbors;
-            for (int i=0; i<num_vl*num_el; ++i) {
-                unsigned start = al_v_crs[num_v*(dir0*num_el*num_vl+i)+v];
-                unsigned end = al_v_crs[num_v*(dir0*num_el*num_vl+i)+v+1];
-                for (unsigned p=start; p<end; ++p) { neighbors.insert(al_e_crs[p]); }
-            }
-            if (neighbors.size() == 0) { continue; }
-            // 2-hop setの列挙
-            for (int dir1=0; dir1<2; ++dir1) {
-                // 2-hop indexに保存するキーのフォーマット: 頂点ID(binary)+dir0(1bit)+dir1(1bit)
-                unsigned key = (((v<<1)+dir0)<<1) + dir1;
-                set<unsigned> two_hops;
-                for (auto &n : neighbors) {
-                    for (int i=0; i<num_vl*num_el; ++i) {
-                        unsigned start = al_v_crs[num_v*(dir1*num_el*num_vl+i)+n];
-                        unsigned end = al_v_crs[num_v*(dir1*num_el*num_vl+i)+n+1];
-                        for (unsigned p=start; p<end; ++p) { two_hops.insert(al_e_crs[p]); }
-                    }
-                }
-                if (two_hops.size() == 0) { continue; }
-                // 2-hop indexへ追加
-                size_total += two_hops.size();
-                vector<unsigned> arr(two_hops.size());
-                twohop_idx.insert(unordered_map<unsigned, vector<unsigned>>::value_type (key, arr));
-                twohop_idx[key].assign(two_hops.begin(), two_hops.end());
-            }
-        }
-    }
-
-    // 2-hop indexのサイズを確認してみる
-    cout << "Total keys: " << twohop_idx.size() << endl;
-    cout << "Total size: " << size_total << endl << "num_v: " << num_v << endl << "fill rate: " << (float) size_total / (num_v*num_v) << endl;
 }

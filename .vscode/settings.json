@@ -19,6 +19,7 @@
         "fstream": "cpp",
         "initializer_list": "cpp",
         "queue": "cpp",
-        "__hash_table": "cpp"
+        "__hash_table": "cpp",
+        "array": "cpp"
     }
 }
