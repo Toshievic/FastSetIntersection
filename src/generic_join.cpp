@@ -1,5 +1,7 @@
 #include "../include/executor.hpp"
 
+#include <algorithm>
+
 
 const unsigned BIT_MASK = BITSET_SIZE - 1;
 
@@ -9,20 +11,22 @@ void GenericJoin::decide_plan(LabeledGraph *lg, Query *query) {
 
     // 本来はここに実行計画の最適化が入る
     // vertex_order = {0,1,2};
-    // vertex_order = {2,0,1};
-    vertex_order = {0,2,1,3};
+    // vertex_order = {0,2,1,3};
+    // vertex_order = {0,2,3,1};
     // vertex_order = {2,3,1,0};
     // vertex_order = {0,1,3,2};
     // vertex_order = {1,3,0,2};
-    // vertex_order = {1,3,2,0};
+    vertex_order = {1,3,2,0};
     // vertex_order = {1,2,3,0};
     // vertex_order = {1,2,0,3};
     // vertex_order = {0,1,2,3};
     // vertex_order = {0,1,2,3,4};
     // vertex_order = {3,4,2,1,0};
     // vertex_order = {2,0,1,4,5,3};
+    // vertex_order = {1,2,3,0,4,5};
     // vertex_order = {2,3,1,4,5,0};
     // vertex_order = {5,6,4,3,2,1,0};
+    // vertex_order = {0,1,2,3,4,5,6};
     setup();
 }
 
@@ -221,7 +225,7 @@ void GenericJoin::find_assignables(int current_depth) {
     }
     
     ++intersection_count;
-    Chrono_t start = get_time();
+    // Chrono_t start = get_time();
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
@@ -272,8 +276,8 @@ void GenericJoin::find_assignables(int current_depth) {
     match_nums[vir_depth] = match_num;
     if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
 
-    Chrono_t end = get_time();
-    lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+    // Chrono_t end = get_time();
+    // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
     if (match_num == 0) { ++empty_num[current_depth]; }
     // match_num_total += match_num*2;
 }
@@ -296,6 +300,7 @@ void GenericJoin::find_assignables_v2(int current_depth) {
         match_nums[vir_depth] = last - first;
         return;
     }
+    ++intersection_count;
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
@@ -502,8 +507,8 @@ void GenericJoin::summarize() {
 
     stats->push_back(stat);
 
-    ofstream fout("/Users/toshihiroito/implements/WebDB2024/output/special/bs_"+get_timestamp()+".txt");
-    for (int i=0; i<=BITSET_SIZE; ++i) {
-        fout << to_string(bit_num_stat[i]) << endl;
-    }
+    // ofstream fout("/Users/toshihiroito/implements/WebDB2024/output/special/bs_"+get_timestamp()+".txt");
+    // for (int i=0; i<=BITSET_SIZE; ++i) {
+    //     fout << to_string(bit_num_stat[i]) << endl;
+    // }
 }

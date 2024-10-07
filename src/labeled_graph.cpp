@@ -3,17 +3,20 @@
 
 #include <numeric>
 #include <unordered_set>
+#include <cstring>
 
 
 const unsigned BUFFER_SIZE = 1024;
 
 void LabeledGraph::load() {
-    char info_file[] = "/Users/toshihiroito/implements/WebDB2024/data/data_info.txt";
-    char scan_v_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_v_crs.bin";
-    char scan_src_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_src_crs.bin";
-    char scan_dst_file[] = "/Users/toshihiroito/implements/WebDB2024/data/scan_dst_crs.bin";
-    char al_v_file[] = "/Users/toshihiroito/implements/WebDB2024/data/al_v_crs.bin";
-    char al_e_file[] = "/Users/toshihiroito/implements/WebDB2024/data/al_e_crs.bin";
+    string input_dir_path = find_path("", "input");
+    string info_file = input_dir_path + "data_info.txt";
+    string scan_v_file = input_dir_path + "scan_v_crs.bin";
+    string scan_src_file = input_dir_path + "scan_src_crs.bin";
+    string scan_dst_file = input_dir_path + "scan_dst_crs.bin";
+    string al_v_file = input_dir_path + "al_v_crs.bin";
+    string al_e_file = input_dir_path + "al_e_crs.bin";
+    string twohop_file = input_dir_path + "2hop_bs.bin";
 
     // infoの読み込み
     ifstream fin_info(info_file, ios::in);
@@ -28,6 +31,12 @@ void LabeledGraph::load() {
     num_vl = stoul(line);
     getline(fin_info, line);
     num_el = stoul(line);
+    getline(fin_info, line);
+    p1 = stoull(line);
+    getline(fin_info, line);
+    p2 = stoull(line);
+    getline(fin_info, line);
+    bs = stoull(line);
     fin_info.close();
 
     // edge scan専用データの読み込み
@@ -98,14 +107,22 @@ void LabeledGraph::load() {
         cout << "Cannot open file: " << al_e_file << endl;
         exit(1);
     }
+    ifstream fin_2h(twohop_file, ios::in|ifstream::ate|ios::binary);
+    if (!fin_2h) {
+        cout << "Cannot open file: " << twohop_file << endl;
+        exit(1);
+    }
 
     unsigned av_size = static_cast<size_t>(fin_av.tellg()) / sizeof(unsigned);
     unsigned ae_size = static_cast<size_t>(fin_ae.tellg()) / sizeof(unsigned);
+    unsigned long long th_size = static_cast<size_t>(fin_2h.tellg()) / sizeof(unsigned long long);
     al_v_crs = new unsigned[av_size];
     al_e_crs = new unsigned[ae_size];
+    twohop_bs.resize(th_size);
 
     fin_av.seekg(0);
     fin_ae.seekg(0);
+    fin_2h.seekg(0);
 
     current_ptr = 0;
     at_end = false;
@@ -132,8 +149,23 @@ void LabeledGraph::load() {
         current_ptr += BUFFER_SIZE;
     }
 
+    current_ptr = 0;
+    at_end = false;
+    vector<unsigned long long> tmp(BUFFER_SIZE);
+    while (!at_end) {
+        unsigned num_block = BUFFER_SIZE;
+        if (current_ptr + BUFFER_SIZE > th_size) {
+            num_block = th_size - current_ptr;
+            at_end = true;
+        }
+        fin_2h.read(reinterpret_cast<char*>(tmp.data()), num_block*sizeof(unsigned long long));
+        memcpy(twohop_bs.data()+current_ptr, tmp.data(), num_block*sizeof(unsigned long long));
+        current_ptr += BUFFER_SIZE;
+    }
+
     fin_av.close();
     fin_ae.close();
+    fin_2h.close();
 
     // adj_bs,max_degreeを作成
     adj_bs = new bitset<BITSET_SIZE>[al_v_crs_size];

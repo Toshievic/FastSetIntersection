@@ -6,7 +6,7 @@
 #include <vector>
 #include <bitset>
 
-#define BITSET_SIZE 256
+#define BITSET_SIZE 4096
 
 
 class LabeledGraph {
@@ -23,7 +23,9 @@ public:
     // fwd or bwd, src, edge_label, dst_label
     unsigned *al_v_crs;
     unsigned *al_e_crs;
+    unsigned long long p1,p2,bs;
     bitset<BITSET_SIZE> *adj_bs;
+    vector<unsigned long long> twohop_bs;
 
     LabeledGraph() {}
     LabeledGraph(bool b) { debug = b; }

@@ -8,8 +8,8 @@ EXEC2_DEBUG = serialize_debug
 
 # オブジェクトファイル
 # 問合せ処理の実行に必要なOBJファイル
-OBJ = master.o util.o query.o labeled_graph.o generic_join.o main.o
-OBJ_DEBUG = master.debug.o util.debug.o query.debug.o labeled_graph.debug.o generic_join.debug.o main.debug.o
+OBJ = master.o util.o query.o labeled_graph.o generic_join.o alpha_generic_join.o main.o
+OBJ_DEBUG = master.debug.o util.debug.o query.debug.o labeled_graph.debug.o generic_join.debug.o alpha_generic_join.debug.o main.debug.o
 # データセットのシリアライズに必要なOBJファイル
 OBJ_S = master.o util.o serialize_dataset.o
 OBJ_S_DEBUG = master.debug.o util.debug.o serialize_dataset.debug.o
@@ -18,8 +18,8 @@ OBJ_S_DEBUG = master.debug.o util.debug.o serialize_dataset.debug.o
 INCLUDE = -I../include
 
 # コンパイラ (clanはmac上でデバッグする際に楽)
-GCC = g++ -std=c++20
-CLANG = clang++ -std=c++20
+GCC = g++ -std=c++23
+CLANG = clang++ -std=c++23
 
 # 本番モード用オプション
 CFLAGS_RELEASE = -O3 $(INCLUDE)

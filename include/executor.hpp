@@ -15,7 +15,8 @@ public:
     unordered_map<string,int> method_dict = {
         {"multiway", 0},
         {"pairwise", 1},
-        {"bitset", 2}
+        {"bitset", 2},
+        {"2hop", 3}
     };
     int method_id;
     unordered_map<string,string> stat;
@@ -80,7 +81,9 @@ public:
     unordered_map<int,vector<pair<int,int>>> cache_switch;
     unordered_set<int> has_full_cache;
     vector<bitset<BITSET_SIZE>*> bs_store;
-    bitset<BITSET_SIZE> filter_bs;
+    unsigned *idxes;
+    vector<vector<pair<unsigned long long,int>>> validate_pool;
+    int *calc_level; // BitFilterによって空集合判定された際にキャッシュが利用可能なレベル
 
     using GenericJoin::GenericJoin;
     AlphaGenericJoin(bool b, vector<unordered_map<string,string>> *stats) {
@@ -94,6 +97,7 @@ public:
     void recursive_join(int current_depth);
     void find_assignables(int current_depth);
     void find_assignables_with_bitset(int current_depth);
+    void find_assignables_with_2hop(int current_depth);
 };
 
 #endif

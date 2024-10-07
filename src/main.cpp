@@ -18,13 +18,14 @@ int main(int argc, char* argv[]) {
     lg.load();
     vector<Query> queries = load_queries(query_sets, debug);
     for (auto &query : queries) {
-        for (int i=0; i<1; ++i) {
-            GenericJoin executor(debug, &stats);
+        for (int i=0; i<3; ++i) {
+            // GenericJoin executor(debug, &stats);
+            AlphaGenericJoin executor(debug, &stats);
             executor.decide_plan(&lg, &query);
             executor.run(method_name);
         }
     }
 
-    string output_file_path = "../result/20240727/" + get_timestamp() + ".csv";
-    export_summaries(stats, output_file_path);
+    // string output_file_path = "../result/20240727/" + get_timestamp() + ".csv";
+    // export_summaries(stats, output_file_path);
 }

@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <sstream>
+#include <algorithm>
 
 
 // related file ---------------------------------------------------------------
