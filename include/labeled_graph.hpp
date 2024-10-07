@@ -6,8 +6,19 @@
 #include <vector>
 #include <bitset>
 #include <unordered_set>
+#include <iostream>
 
 #define BITSET_SIZE 1024
+
+
+// 2-hop indexで利用するハッシュ関数, 局所性の向上が目的
+struct DenseHash {
+    const unsigned long long MB = 0xffffffff80000000;
+    std::size_t operator()(unsigned long long value) const {
+        // 元の頂点ID+dirsの部分のみハッシュし、その値に隣接頂点IDの値を足す
+        return hash<unsigned long long>()(value & MB) + (value & (~MB));
+    }
+};
 
 
 class LabeledGraph {
@@ -28,6 +39,7 @@ public:
     unsigned *twohop_v_crs;
     unsigned *twohop_e_crs;
     unordered_set<unsigned long long> twohop_idx;
+    vector<unsigned> twohop_bs;
 
     LabeledGraph() {}
     LabeledGraph(bool b) { debug = b; }

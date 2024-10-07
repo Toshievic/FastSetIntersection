@@ -97,6 +97,7 @@ void GenericJoin::setup() {
     result_size = 0;
     intersection_count = 0;
     keys = new unsigned[num_variables];
+    twohop_bs_size = lg->twohop_bs.size();
 
     for (int i=0; i<num_variables; i++) {
         update_num[i] = 0;
@@ -480,12 +481,12 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         for (int j=0; j<i; ++j) {
-            Chrono_t start = get_time();
-            unsigned long long key = keys[src];
-            key = (key<<33)+(validate_pool[j].first<<2)+(dir<<1)+validate_pool[j].second^1;
-            bool flg = lg->twohop_idx.contains(key);
-            Chrono_t end = get_time();
-            lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+            // Chrono_t start = get_time();
+            unsigned long long key = (keys[src]<<2)+(dir<<1)+validate_pool[j].second^1;
+            key = ((key<<31)+keys[validate_pool[j].first]) & (twohop_bs_size-1);
+            // Chrono_t end = get_time();
+            bool flg = (lg->twohop_bs[key/32] & (1 << (key&31))) == 0;
+            // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
             if (!flg) {
                 if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
                 return;

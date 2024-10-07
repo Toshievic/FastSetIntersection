@@ -81,18 +81,18 @@ int main(int argc, char* argv[]) {
             for (int dir1=0; dir1<2; ++dir1) {
                 unordered_set<unsigned> two_hops;
                 for (auto &n : neighbors) {
-                    for (int i=0; i<num_v_labels.size()*num_e_labels.size(); ++i) {
-                        unsigned key = vertices.size()*(dir1*num_v_labels.size()*num_e_labels.size()+i)+n;
-                        for (int j=0; j<adjlist[key].size(); ++j) {
-                            two_hops.insert(adjlist[key][j]);
+                    for (int j=0; j<num_v_labels.size()*num_e_labels.size(); ++j) {
+                        unsigned key = vertices.size()*(dir1*num_v_labels.size()*num_e_labels.size()+j)+n;
+                        for (int k=0; k<adjlist[key].size(); ++k) {
+                            two_hops.insert(adjlist[key][k]);
                         }
                     }
                 }
                 // 2-hop indexへ追加
-                for (auto &n : two_hops) {
-                    // 2-hop indexに保存するキーのフォーマット: 元頂点ID(31bit)+隣接頂点ID(31bit)+dir0(1bit)+dir1(1bit)
-                    unsigned long long key = v.first;
-                    key = (key<<33)+(n<<2)+(dir0<<1)+dir1;
+                for (auto &t : two_hops) {
+                    // 2-hop indexに保存するキーのフォーマット: 元頂点ID(31bit)+dir0(1bit)+dir1(1bit)+隣接頂点ID(31bit)
+                    unsigned long long key = (v.first<<2)+(dir0<<1)+dir1;
+                    key = (key<<31)+t;
                     twohop_idx.push_back(key);
                 }
             }
@@ -170,12 +170,21 @@ int main(int argc, char* argv[]) {
     }
     fout1.write((const char *) &current_ptr, sizeof(unsigned));
 
-    for (int i=0; i<twohop_idx.size(); ++i) {
-        fout3.write((const char *) &twohop_idx[i], sizeof(unsigned long long));
+    const size_t block_size = 134217728;
+    size_t data_size = twohop_idx.size();
+    size_t num_blocks = (data_size + block_size - 1) / block_size;
+
+    // 各ブロックを書き込み
+    for (size_t i=0; i<num_blocks; ++i) {
+        size_t start_idx = i * block_size;
+        size_t end_idx = min(start_idx+block_size, data_size);
+        fout3.write(reinterpret_cast<const char*>(&twohop_idx[start_idx]), (end_idx - start_idx) * sizeof(unsigned long long));
     }
 
     cout << "num_v: " << vertices.size() << endl;
     cout << "num_e: " << table.size() << endl;
+    cout << "num_v_labels: " << num_v_labels.size() << endl;
+    cout << "num_e_labels: " << num_e_labels.size() << endl;
     cout << "size of al_v_crs: " << al_v_crs_len+1 << endl;
     cout << "size of al_e_crs: " << current_ptr << endl;
     cout << "size of 2-hop index: " << twohop_idx.size() << endl;

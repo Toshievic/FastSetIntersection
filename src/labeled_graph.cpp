@@ -110,7 +110,7 @@ void LabeledGraph::load() {
 
     unsigned av_size = static_cast<size_t>(fin_av.tellg()) / sizeof(unsigned);
     unsigned ae_size = static_cast<size_t>(fin_ae.tellg()) / sizeof(unsigned);
-    unsigned th_size = static_cast<size_t>(fin_2h.tellg()) / sizeof(unsigned long long);
+    unsigned long long th_size = static_cast<size_t>(fin_2h.tellg()) / sizeof(unsigned long long);
     al_v_crs = new unsigned[av_size];
     al_e_crs = new unsigned[ae_size];
 
@@ -143,16 +143,29 @@ void LabeledGraph::load() {
         current_ptr += BUFFER_SIZE;
     }
 
+    current_ptr = 0;
     at_end = false;
-    unsigned long long tmp[BUFFER_SIZE];
+    // twohop_bsの配列長を決定
+    int bs_size = 1;
+    while (bs_size < th_size) { bs_size *= 2; }
+    twohop_bs.resize(bs_size/32);
+    fill(twohop_bs.begin(), twohop_bs.end(), 0);
+    const unsigned long long MB = 0xffffffff80000000;
+    vector<unsigned long long> tmp(BUFFER_SIZE);
     while (!at_end) {
         unsigned num_block = BUFFER_SIZE;
         if (current_ptr + BUFFER_SIZE > th_size) {
             num_block = th_size - current_ptr;
             at_end = true;
         }
-        fin_2h.read(reinterpret_cast<char*>(tmp), num_block*sizeof(unsigned long long));
-        for (int i=0; i<num_block; ++i) { twohop_idx.insert(tmp[i]); }
+        fin_2h.read(reinterpret_cast<char*>(tmp.data()), num_block*sizeof(unsigned long long));
+        // twohop_idx.insert(tmp.begin(), tmp.begin()+num_block);
+        for (int i=0; i<num_block; ++i) {
+            size_t hash_num = hash<unsigned long long>()(tmp[i] & MB) + (tmp[i] & ~MB);
+            unsigned long long h = hash_num & (bs_size-1);
+            cout << h << endl;
+            if ((twohop_bs[h/32] & (1<<(h&31))) == 0) { twohop_bs[h/32] += (1<<(h&31)); }
+        }
         current_ptr += BUFFER_SIZE;
     }
 

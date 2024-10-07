@@ -33,6 +33,7 @@ public:
 
     pair<unsigned*, unsigned*> *indices;
     vector<pair<int,int>> validate_pool;
+    unsigned long long twohop_bs_size;
 
     vector<unsigned> scanned_srcs;
     vector<unsigned> scanned_dsts;
