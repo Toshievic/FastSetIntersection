@@ -10,13 +10,13 @@ void GenericJoin::decide_plan(LabeledGraph *lg, Query *query) {
     q = query;
 
     // 本来はここに実行計画の最適化が入る
-    // vertex_order = {0,1,2};
+    vertex_order = {0,1,2};
     // vertex_order = {0,2,1,3};
     // vertex_order = {0,2,3,1};
     // vertex_order = {2,3,1,0};
     // vertex_order = {0,1,3,2};
     // vertex_order = {1,3,0,2};
-    vertex_order = {1,3,2,0};
+    // vertex_order = {1,3,2,0};
     // vertex_order = {1,2,3,0};
     // vertex_order = {1,2,0,3};
     // vertex_order = {0,1,2,3};

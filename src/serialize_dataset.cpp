@@ -143,7 +143,7 @@ int main(int argc, char* argv[]) {
 
     constexpr unsigned long long base = 1;
     for (int i=0; i<twohop_idx.size(); ++i) {
-        unsigned long long h = get<0>(twohop_idx[i])*p1 + get<1>(twohop_idx[i])*p2 + get<2>(twohop_idx[i]) & (bs-1);
+        unsigned long long h = (get<0>(twohop_idx[i])*p1 + get<1>(twohop_idx[i]) + get<2>(twohop_idx[i])*vertices.size()) & (bs-1);
         unsigned long long x = (base << (h&63));
         if ((twohop_bs[h>>6] & x) == 0) { twohop_bs[h>>6] += x; }
     }

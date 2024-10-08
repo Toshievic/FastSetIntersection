@@ -9,7 +9,7 @@
         "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/src/exec_debug",
-        "args": ["2hop"],
+        "args": ["pairwise"],
         "envFile": "${workspaceFolder}/.env",
         "cwd": "${workspaceFolder}",
         },

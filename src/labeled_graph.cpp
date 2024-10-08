@@ -4,6 +4,8 @@
 #include <numeric>
 #include <unordered_set>
 #include <cstring>
+#include <queue>
+#include <cstdlib>
 
 
 const unsigned BUFFER_SIZE = 1024;
@@ -180,6 +182,38 @@ void LabeledGraph::load() {
             // k=隣接頂点 mod BITSET_SIZEとして, k番目のbitを1にする
             unsigned h = al_e_crs[j] & (BITSET_SIZE-1);
                 adj_bs[i-1].set(h);
+        }
+    }
+
+    set_dists(0);
+}
+
+
+void LabeledGraph::set_dists(unsigned root_id) {
+    dists = new unsigned[num_v];
+    for (int i=0; i<num_v; ++i) {
+        dists[i] = -1; // -1は初期値
+    }
+    queue<unsigned> q;
+
+    dists[root_id] = 0;
+    q.push(root_id);
+    int counter = 0;
+
+    while (!q.empty()) {
+        unsigned v = q.front();
+        q.pop();
+
+        for (int i=0; i<2*num_vl*num_el; ++i) {
+            unsigned start = al_v_crs[num_v*i+v];
+            unsigned end = al_v_crs[num_v*i+v+1];
+            for (unsigned p=start; p<end; ++p) {
+                if (dists[al_e_crs[p]] == -1) { // 未訪問であれば
+                    dists[al_e_crs[p]] = dists[v] + 1;
+                    q.push(al_e_crs[p]);
+                    if (dists[v] == 0) { ++counter; }
+                }
+            }
         }
     }
 }

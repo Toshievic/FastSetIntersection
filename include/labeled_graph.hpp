@@ -26,11 +26,14 @@ public:
     unsigned long long p1,p2,bs;
     bitset<BITSET_SIZE> *adj_bs;
     vector<unsigned long long> twohop_bs;
+    // ある頂点から各頂点の最短距離を計算 (グラフの向きは一旦考慮しない)
+    unsigned *dists;
 
     LabeledGraph() {}
     LabeledGraph(bool b) { debug = b; }
 
     void load();
+    void set_dists(unsigned root_id);
 };
 
 #endif

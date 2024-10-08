@@ -82,8 +82,9 @@ public:
     unordered_set<int> has_full_cache;
     vector<bitset<BITSET_SIZE>*> bs_store;
     unsigned *idxes;
-    vector<vector<pair<unsigned long long,int>>> validate_pool;
+    vector<vector<unsigned long long>> validate_pool;
     int *calc_level; // BitFilterによって空集合判定された際にキャッシュが利用可能なレベル
+    unsigned dist_counter[3];
 
     using GenericJoin::GenericJoin;
     AlphaGenericJoin(bool b, vector<unordered_map<string,string>> *stats) {
@@ -98,6 +99,7 @@ public:
     void find_assignables(int current_depth);
     void find_assignables_with_bitset(int current_depth);
     void find_assignables_with_2hop(int current_depth);
+    void find_assignables_exp(int current_depth);
 };
 
 #endif

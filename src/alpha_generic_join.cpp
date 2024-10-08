@@ -88,6 +88,7 @@ void AlphaGenericJoin::setup() {
     result_size = 0;
     intersection_count = 0;
     keys = new unsigned[num_variables];
+    for (int i=0; i<3; ++i) { dist_counter[i] = 0; }
 
     for (int i=0; i<num_variables; i++) {
         update_num[i] = 0;
@@ -128,6 +129,9 @@ void AlphaGenericJoin::multiway_join() {
             }
         }
     }
+    cout << "0: " << dist_counter[0] << endl;
+    cout << "1: " << dist_counter[1] << endl;
+    cout << "2: " << dist_counter[2] << endl;
 }
 
 
@@ -135,6 +139,9 @@ void AlphaGenericJoin::recursive_join(int current_depth) {
     switch (method_id) {
         case 0:
             find_assignables(current_depth);
+            break;
+        case 1:
+            find_assignables_exp(current_depth);
             break;
         case 2:
             find_assignables_with_bitset(current_depth);
@@ -328,30 +335,24 @@ void AlphaGenericJoin::find_assignables_with_2hop(int current_depth) {
             return;
         }
         ++level;
-        validate_pool[vir_depth][level] = {(unsigned long long)keys[src]*lg->p1, (dir<<1)};
+        validate_pool[vir_depth][level] = (unsigned long long)keys[src]*lg->p1 + (dir<<1)*lg->num_v;
     }
-    ++intersection_count;
+    
     for (int i=level+1; i<arr_num; ++i) {
         pair<unsigned*, unsigned*> it1 = {result_store[vir_depth][i-1], result_store[vir_depth][i-1]+match_nums[vir_depth][i-1]};
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        Chrono_t start = get_time();
         // 2-hop indexによる枝刈り
-        unsigned long long base_h = keys[src] * lg->p2;
+        unsigned long long base_h = keys[src] + (dir^1) * lg->num_v;
         for (int j=0; j<i; ++j) {
-            unsigned long long h = (
-                validate_pool[vir_depth][j].first + base_h + validate_pool[vir_depth][j].second + (dir^1)) & (lg->bs-1);
+            unsigned long long h = (validate_pool[vir_depth][j] + base_h) & (lg->bs-1);
             if ((lg->twohop_bs[h>>6] & (base<<(h&63))) == 0) {
                 if (has_full_cache.contains(current_depth)) { available_level[current_depth]=arr_num-1; }
                 else { available_level[current_depth] = arr_num-2; }
                 match_nums[vir_depth][i] = 0;
-                Chrono_t end = get_time();
-                lev_runtime[current_depth] += get_msec_runtime(&start, &end);
                 return;
             }
         }
-        Chrono_t end = get_time();
-        lev_runtime[current_depth] += get_msec_runtime(&start, &end);
 
         pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
 
@@ -378,7 +379,80 @@ void AlphaGenericJoin::find_assignables_with_2hop(int current_depth) {
         match_nums[vir_depth][i] = match_num;
         if (!match_num) { break; }
 
-        validate_pool[vir_depth][i] = {base_h, (dir<<1)};
+        validate_pool[vir_depth][i] = keys[src] * lg->p1 + (dir<<1) * lg->num_v;
+    }
+    ++intersection_count;
+    if (has_full_cache.contains(current_depth)) { available_level[current_depth]=arr_num-1; }
+    else { available_level[current_depth] = arr_num-2; }
+}
+
+
+void AlphaGenericJoin::find_assignables_exp(int current_depth) {
+    int vir_depth = current_depth-2;
+    int level = available_level.contains(current_depth) ? available_level[current_depth] : -2;
+    int arr_num = result_store[vir_depth].size();
+    // 最終的なintersection結果を利用可能な場合はすぐreturn
+    if (level == arr_num-1) { return; }
+    for (int i=level==-2 ? 0 : level+1; i<arr_num; ++i) { match_nums[vir_depth][i] = 0; }
+
+    if (level < 0) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][0];
+        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
+        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        match_nums[vir_depth][0] = last - first;
+        memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
+        if (arr_num == 1) {
+            if (level == -2) { return; }
+            if (has_full_cache.contains(current_depth)) { available_level[current_depth] = 0; }
+            else { available_level[current_depth] = -1; }
+            return;
+        }
+        ++level;
+    }
+    int min_dist = -1;
+    int max_dist = -1;
+    for (int i=0; i<arr_num; ++i) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        int dist = lg->dists[keys[src]];
+        if (min_dist == -1) { min_dist = dist; max_dist = dist; }
+        else {
+            if (dist < min_dist) { min_dist = dist; }
+            else if (dist > max_dist) { max_dist = dist; }
+        }
+    }
+    dist_counter[max_dist-min_dist] += 1;
+
+    ++intersection_count;
+    for (int i=level+1; i<arr_num; ++i) {
+        pair<unsigned*, unsigned*> it1 = {result_store[vir_depth][i-1], result_store[vir_depth][i-1]+match_nums[vir_depth][i-1]};
+        auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+
+        pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
+
+        int match_num = 0;
+
+        while (it1.first != it1.second && it2.first != it2.second) {
+            if (*it1.first < *it2.first) {
+                ++it1.first;
+                while (it1.first != it1.second && *it1.first < *it2.first) {
+                    ++it1.first;
+                }
+            } else if (*it1.first > *it2.first) {
+                ++it2.first;
+                while (it2.first != it2.second && *it1.first > *it2.first) {
+                    ++it2.first;
+                }
+            } else {
+                result_store[vir_depth][i][match_num] = *it1.first;
+                ++match_num;
+                ++it1.first;
+                ++it2.first;
+            }
+        }
+        match_nums[vir_depth][i] = match_num;
+        if (!match_num) { break; }
     }
     if (has_full_cache.contains(current_depth)) { available_level[current_depth]=arr_num-1; }
     else { available_level[current_depth] = arr_num-2; }
