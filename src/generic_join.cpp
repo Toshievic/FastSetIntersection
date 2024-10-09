@@ -481,6 +481,7 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         // Chrono_t start = get_time();
         for (int j=0; j<i; ++j) {
+            cout << i << endl;
             unsigned key = (((keys[src]<<1)+dir)<<1)+(validate_pool[j].second^1);
             if (lg->twohop_idx.contains(key)) {
                 if (!binary_search(lg->twohop_idx[key].begin(), lg->twohop_idx[key].end(), keys[validate_pool[j].first])) {
