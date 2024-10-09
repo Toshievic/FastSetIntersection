@@ -14,10 +14,10 @@ void GenericJoin::decide_plan(LabeledGraph *lg, Query *query) {
     // vertex_order = {2,3,1,0};
     // vertex_order = {0,1,3,2};
     // vertex_order = {1,3,0,2};
-    // vertex_order = {1,3,2,0};
+    vertex_order = {1,3,2,0};
     // vertex_order = {1,2,3,0};
     // vertex_order = {1,2,0,3};
-    vertex_order = {0,1,2,3};
+    // vertex_order = {0,1,2,3};
     // vertex_order = {0,1,2,3,4};
     // vertex_order = {3,4,2,1,0};
     // vertex_order = {2,0,1,4,5,3};
