@@ -15,13 +15,13 @@ void GenericJoin::decide_plan(LabeledGraph *lg, Query *query) {
     // vertex_order = {2,0,1};
     // vertex_order = {0,2,1,3};
     // vertex_order = {0,2,3,1};
-    vertex_order = {2,3,1,0};
+    // vertex_order = {2,3,1,0};
     // vertex_order = {0,1,3,2};
     // vertex_order = {1,3,0,2};
     // vertex_order = {1,3,2,0};
     // vertex_order = {1,2,3,0};
     // vertex_order = {1,2,0,3};
-    // vertex_order = {0,1,2,3};
+    vertex_order = {0,1,2,3};
     // vertex_order = {0,1,2,3,4};
     // vertex_order = {3,4,2,1,0};
     // vertex_order = {2,0,1,4,5,3};
@@ -401,7 +401,6 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;
             }
-            ++intersection_count;
             
             ++empty_num[current_depth];
             return;
@@ -487,21 +486,25 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
         return;
     }
     
-    // Chrono_t start = get_time();
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
         // 2-hop indexによる枝刈り
+        Chrono_t start = get_time();
         unsigned long long base_h = keys[src] + (dir^1) * lg->num_v;
         for (int j=0; j<i; ++j) {
             unsigned long long h = (validate_pool[vir_depth][j] + base_h) & (lg->bs-1);
             if ((lg->twohop_bs[h>>6] & (base<<(h&63))) == 0) {
+                Chrono_t end = get_time();
+                lev_runtime[current_depth] += get_msec_runtime(&start, &end);
                 if (cache_available.contains(current_depth)) {
                     cache_available[current_depth] = true;
                 }
                 return;
             }
         }
+        Chrono_t end = get_time();
+        lev_runtime[current_depth] += get_msec_runtime(&start, &end);
         unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
         unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
         if (first == last) {
@@ -550,9 +553,6 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
     }
     match_nums[vir_depth] = match_num;
     if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
-
-    // Chrono_t end = get_time();
-    // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
     if (match_num == 0) { ++empty_num[current_depth]; }
     // match_num_total += match_num*2;
 }
