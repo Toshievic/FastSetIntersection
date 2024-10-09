@@ -3,3 +3,4 @@ data
 result
 output
 .env
+.DS_store

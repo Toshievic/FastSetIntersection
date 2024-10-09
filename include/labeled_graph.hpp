@@ -6,7 +6,7 @@
 #include <vector>
 #include <bitset>
 
-#define BITSET_SIZE 1024
+#define BITSET_SIZE 4096
 
 
 class LabeledGraph {

@@ -10,14 +10,14 @@ void GenericJoin::decide_plan(LabeledGraph *lg, Query *query) {
     // 本来はここに実行計画の最適化が入る
     // vertex_order = {0,1,2};
     // vertex_order = {2,0,1};
-    vertex_order = {0,2,1,3};
+    // vertex_order = {0,2,1,3};
     // vertex_order = {2,3,1,0};
     // vertex_order = {0,1,3,2};
     // vertex_order = {1,3,0,2};
     // vertex_order = {1,3,2,0};
     // vertex_order = {1,2,3,0};
     // vertex_order = {1,2,0,3};
-    // vertex_order = {0,1,2,3};
+    vertex_order = {0,1,2,3};
     // vertex_order = {0,1,2,3,4};
     // vertex_order = {3,4,2,1,0};
     // vertex_order = {2,0,1,4,5,3};
@@ -477,27 +477,29 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
         return;
     }
     
-    Chrono_t start = get_time();
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        // Chrono_t start = get_time();
         for (int j=0; j<i; ++j) {
             unsigned key = (((keys[src]<<1)+dir)<<1)+(validate_pool[j].second^1);
             if (lg->twohop_idx.contains(key)) {
                 if (!binary_search(lg->twohop_idx[key].begin(), lg->twohop_idx[key].end(), keys[validate_pool[j].first])) {
+                    // Chrono_t end = get_time();
+                    // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
                     if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
-                    Chrono_t end = get_time();
-                    lev_runtime[current_depth] += get_msec_runtime(&start, &end);
                     return;
                 }
             }
             else {
+                // Chrono_t end = get_time();
+                // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
                 if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
-                Chrono_t end = get_time();
-                lev_runtime[current_depth] += get_msec_runtime(&start, &end);
                 return;
             }
         }
         validate_pool[i] = {src,dir};
+        // Chrono_t end = get_time();
+        // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
         
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
         unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
@@ -506,15 +508,11 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;
             }
-            Chrono_t end = get_time();
-            lev_runtime[current_depth] += get_msec_runtime(&start, &end);
             return;
         }
         indices[i] = {first, last};
         // al_len_total += last-first;
     }
-    Chrono_t end = get_time();
-    lev_runtime[current_depth] += get_msec_runtime(&start, &end);
     ++intersection_count;
 
     //2. Sort indexes by their first value and do some initial iterators book-keeping!
