@@ -45,6 +45,8 @@ public:
     unordered_map<int, unsigned> update_num, empty_num;
     unordered_map<int, double> lev_runtime, empty_runtime;
 
+    vector<vector<unsigned long long>> validate_pool;
+
     // keyがキャッシュのキーのうちQVOが最も遅い頂点, valueがキャッシュ値
     unordered_map<int, vector<int>> cache_switch;
     unordered_map<int, bool> cache_available;
@@ -68,6 +70,7 @@ public:
     virtual void find_assignables(int current_depth); // 一気に全部intersection
     virtual void find_assignables_v2(int current_depth); // binary intersection
     virtual void find_assignables_with_bitset(int current_depth); // binary intersection
+    virtual void find_assignables_with_2hop(int current_depth);
 
     void summarize();
 };

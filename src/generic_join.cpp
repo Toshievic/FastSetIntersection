@@ -4,16 +4,18 @@
 
 
 const unsigned BIT_MASK = BITSET_SIZE - 1;
+constexpr unsigned long long base = 1;
 
 void GenericJoin::decide_plan(LabeledGraph *lg, Query *query) {
     this->lg = lg;
     q = query;
 
     // 本来はここに実行計画の最適化が入る
-    vertex_order = {0,1,2};
+    // vertex_order = {0,1,2};
+    // vertex_order = {2,0,1};
     // vertex_order = {0,2,1,3};
     // vertex_order = {0,2,3,1};
-    // vertex_order = {2,3,1,0};
+    vertex_order = {2,3,1,0};
     // vertex_order = {0,1,3,2};
     // vertex_order = {1,3,0,2};
     // vertex_order = {1,3,2,0};
@@ -68,12 +70,14 @@ void GenericJoin::setup() {
     indices = new pair<unsigned*,unsigned*>[max_size];
 
     intersection_result = new vector<unsigned>[num_variables-2];
+    validate_pool.resize(num_variables-2);
     match_nums = new unsigned[num_variables-2];
     for (int i=0; i<descriptors.size(); ++i) {
         match_nums[i] = 0;
         intersection_result[i].resize(lg->num_v);
         size_t s = tmp_dsps[i].size();
         descriptors[i].resize(s);
+        validate_pool[i].resize(s);
         for (int j=0; j<s; ++j) { descriptors[i][j] = tmp_dsps[i][j]; }
     }
     tmp_result = new unsigned[lg->num_v];
@@ -179,6 +183,9 @@ void GenericJoin::recursive_join(int current_depth) {
         case 2:
             find_assignables_with_bitset(current_depth);
             break;
+        case 3:
+            find_assignables_with_2hop(current_depth);
+            break;
         default:
             find_assignables(current_depth);
             break;
@@ -224,7 +231,6 @@ void GenericJoin::find_assignables(int current_depth) {
         return;
     }
     
-    ++intersection_count;
     // Chrono_t start = get_time();
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
@@ -235,13 +241,13 @@ void GenericJoin::find_assignables(int current_depth) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;
             }
-            ++empty_num[current_depth];
             return;
         }
         indices[i] = {first, last};
         // al_len_total += last-first;
     }
 
+    ++intersection_count;
     //2. Sort indexes by their first value and do some initial iterators book-keeping!
     sort(indices, indices+arr_num,
         [&](const pair<unsigned*,unsigned*> &a,
@@ -461,6 +467,97 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
 }
 
 
+void GenericJoin::find_assignables_with_2hop(int current_depth) {
+    int vir_depth = current_depth-2;
+    if (cache_available.contains(current_depth) && cache_available[current_depth]) {
+        return;
+    }
+
+    int arr_num = descriptors[vir_depth].size();
+    match_nums[vir_depth] = 0;
+
+    if (arr_num == 1) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][0];
+        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
+        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        intersection_result[vir_depth].assign(first,last);
+        match_nums[vir_depth] = last - first;
+        if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
+        return;
+    }
+    
+    // Chrono_t start = get_time();
+    for (int i=0; i<arr_num; ++i) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+        // 2-hop indexによる枝刈り
+        unsigned long long base_h = keys[src] + (dir^1) * lg->num_v;
+        for (int j=0; j<i; ++j) {
+            unsigned long long h = (validate_pool[vir_depth][j] + base_h) & (lg->bs-1);
+            if ((lg->twohop_bs[h>>6] & (base<<(h&63))) == 0) {
+                if (cache_available.contains(current_depth)) {
+                    cache_available[current_depth] = true;
+                }
+                return;
+            }
+        }
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
+        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        if (first == last) {
+            if (cache_available.contains(current_depth)) {
+                cache_available[current_depth] = true;
+            }
+            ++empty_num[current_depth];
+            return;
+        }
+        indices[i] = {first, last};
+        // al_len_total += last-first;
+        validate_pool[vir_depth][i] = keys[src] * lg->p1 + (dir<<1) * lg->num_v;
+    }
+
+    ++intersection_count;
+    //2. Sort indexes by their first value and do some initial iterators book-keeping!
+    sort(indices, indices+arr_num,
+        [&](const pair<unsigned*,unsigned*> &a,
+        const pair<unsigned*,unsigned*> &b) { return *a.first < *b.first; });
+
+    int it = 0;
+    int match_num = 0;
+    pair<unsigned*,unsigned*> *its = &indices[it];
+    unsigned max = *indices[arr_num-1].first;
+    bool b = false;
+
+    // ++update_num[current_depth];
+    while (true) {
+        if (*its->first == max) {
+            intersection_result[vir_depth][match_num] = max;
+            ++match_num;
+            if (++its->first == its->second) { break; }
+        }
+        while (*its->first < max) {
+            if (++its->first == its->second) {
+                b = true;
+                break;
+            }
+        }
+        if (b) { break; }
+        max = *its->first;
+        // if文でitがarr_num-1を超えないようにする
+        if (++it > arr_num-1) { it = 0; }
+        
+        its = &indices[it];
+    }
+    match_nums[vir_depth] = match_num;
+    if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
+
+    // Chrono_t end = get_time();
+    // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+    if (match_num == 0) { ++empty_num[current_depth]; }
+    // match_num_total += match_num*2;
+}
+
+
 void GenericJoin::summarize() {
     stat["dataset"] = lg->dataset_name;
     stat["query"] = q->query_name;
@@ -479,11 +576,11 @@ void GenericJoin::summarize() {
     cout << "number of intermediate tuples:\t" << intersection_count << endl;
 
     cout << "--- Details ---" << endl;
-    // cout << "No interseciton counts of each depth:\t\t\t" << endl;
+    cout << "No interseciton counts of each depth:\t\t\t" << endl;
     // print(empty_num);
-    // unsigned total = 0;
-    // for (auto &itr : empty_num) { total += itr.second; }
-    // cout << "Total: " << total << endl;
+    unsigned total = 0;
+    for (auto &itr : empty_num) { total += itr.second; }
+    cout << "Total: " << total << endl;
     // stat["empty_num"] = to_string(total);
     // cout << "No need: " << to_string((double)(al_len_total - match_num_total)/al_len_total) << endl;
 

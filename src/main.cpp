@@ -18,9 +18,9 @@ int main(int argc, char* argv[]) {
     lg.load();
     vector<Query> queries = load_queries(query_sets, debug);
     for (auto &query : queries) {
-        for (int i=0; i<0; ++i) {
-            // GenericJoin executor(debug, &stats);
-            AlphaGenericJoin executor(debug, &stats);
+        for (int i=0; i<3; ++i) {
+            GenericJoin executor(debug, &stats);
+            // AlphaGenericJoin executor(debug, &stats);
             executor.decide_plan(&lg, &query);
             executor.run(method_name);
         }
