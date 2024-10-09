@@ -19,6 +19,7 @@
         "fstream": "cpp",
         "initializer_list": "cpp",
         "bitset": "cpp",
-        "*.tcc": "cpp"
+        "*.tcc": "cpp",
+        "iosfwd": "cpp"
     }
 }

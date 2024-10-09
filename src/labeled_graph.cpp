@@ -19,6 +19,7 @@ void LabeledGraph::load() {
     string al_v_file = input_dir_path + "al_v_crs.bin";
     string al_e_file = input_dir_path + "al_e_crs.bin";
     string twohop_file = input_dir_path + "2hop_bs.bin";
+    string dist_file = input_dir_path + "dfilter.bin";
 
     // infoの読み込み
     ifstream fin_info(info_file, ios::in);
@@ -185,35 +186,39 @@ void LabeledGraph::load() {
         }
     }
 
-    set_dists(0);
-}
-
-
-void LabeledGraph::set_dists(unsigned root_id) {
-    dists = new unsigned[num_v];
-    for (int i=0; i<num_v; ++i) {
-        dists[i] = -1; // -1は初期値
+    // あればdfilterを読み込む
+    ifstream fin_di(dist_file, ios::in|ifstream::ate|ios::binary);
+    if (!fin_di) {
+        cout << "Cannot open file: " << twohop_file << endl;
     }
-    queue<unsigned> q;
+    else {
+        unsigned di_size = static_cast<size_t>(fin_di.tellg()) / sizeof(unsigned);
+        if (di_size != num_v) { cout << di_size << endl; }
+        dists = new unsigned[di_size];
 
-    dists[root_id] = 0;
-    q.push(root_id);
-    int counter = 0;
+        // ストリーム位置を最初に戻す
+        fin_di.seekg(0);
 
-    while (!q.empty()) {
-        unsigned v = q.front();
-        q.pop();
-
-        for (int i=0; i<2*num_vl*num_el; ++i) {
-            unsigned start = al_v_crs[num_v*i+v];
-            unsigned end = al_v_crs[num_v*i+v+1];
-            for (unsigned p=start; p<end; ++p) {
-                if (dists[al_e_crs[p]] == -1) { // 未訪問であれば
-                    dists[al_e_crs[p]] = dists[v] + 1;
-                    q.push(al_e_crs[p]);
-                    if (dists[v] == 0) { ++counter; }
-                }
+        unsigned current_ptr = 0;
+        bool at_end = false;
+        while (!at_end) {
+            unsigned num_block = BUFFER_SIZE;
+            if (current_ptr + BUFFER_SIZE > di_size) {
+                num_block = di_size - current_ptr;
+                at_end = true;
             }
+            fin_di.read(reinterpret_cast<char*>(dists+current_ptr), num_block*sizeof(unsigned));
+            current_ptr += BUFFER_SIZE;
         }
+        // 距離差別に頂点数を集計
+        unsigned counters[3];
+        for (int i=0; i<av_size; ++i) {
+            unsigned first = al_v_crs[i];
+            unsigned end = al_v_crs[i+1];
+            counters[i%3] += end - first;
+        }
+        cout << "0: " << counters[0] << endl;
+        cout << "1: " << counters[1] << endl;
+        cout << "2: " << counters[2] << endl;
     }
 }

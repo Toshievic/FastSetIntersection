@@ -18,7 +18,7 @@
         "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/src/serialize_debug",
-        "args": ["epinions"],
+        "args": ["karate"],
         "envFile": "${workspaceFolder}/.env",
         "cwd": "${workspaceFolder}",
         }

@@ -129,9 +129,6 @@ void AlphaGenericJoin::multiway_join() {
             }
         }
     }
-    cout << "0: " << dist_counter[0] << endl;
-    cout << "1: " << dist_counter[1] << endl;
-    cout << "2: " << dist_counter[2] << endl;
 }
 
 

@@ -102,4 +102,22 @@ public:
     void find_assignables_exp(int current_depth);
 };
 
+
+class BetaGenericJoin : public AlphaGenericJoin {
+public:
+    vector<vector<unsigned **>> result_store;
+    vector<vector<int *>> match_nums;
+
+    using AlphaGenericJoin::AlphaGenericJoin;
+    BetaGenericJoin(bool b, vector<unordered_map<string,string>> *stats) {
+        debug = b;
+        this->stats = stats;
+        this->executor_name = "BGJ";
+    }
+
+    void setup();
+    void recursive_join(int current_depth);
+    void find_assignables(int current_depth);
+};
+
 #endif

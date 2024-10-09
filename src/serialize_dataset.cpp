@@ -3,8 +3,10 @@
 
 #include <unordered_set>
 #include <cstdlib>
+#include <cstring>
 #include <algorithm>
 #include <math.h>
+#include <queue>
 
 
 bool is_prime(int num)
@@ -27,11 +29,13 @@ bool is_prime(int num)
     return true;
 }
 
+
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
+    if (argc < 2) {
         cerr << "Usage: " << argv[0] << " <dataset_name>" << endl;
         exit(1);
     }
+
     string data_dir = find_path(argv[1], "dataset");
 
     // 頂点データの読み込み
@@ -155,8 +159,60 @@ int main(int argc, char* argv[]) {
     // v_crsの要素数を決定
     unsigned scan_v_crs_len = 2 * num_e_labels.size() * num_v_labels.size() * num_v_labels.size();
     unsigned al_v_crs_len = 2 * num_e_labels.size() * num_v_labels.size() * vertices.size();
-
     string workdir_path = getenv("WORKDIR_PATH");
+
+    if (argc > 2) {
+        cout << "DFilter mode" << endl;
+        // 各頂点に距離ラベルを付加
+        vector<unsigned> dists(vertices.size());
+        for (int i=0; i<vertices.size(); ++i) { dists[i] = -1; } // -1は初期値
+        queue<unsigned> q;
+
+        dists[0] = 0;
+        q.push(0);
+
+        while (!q.empty()) {
+            unsigned v = q.front();
+            q.pop();
+            for (int i=0; i<2*num_v_labels.size()*num_e_labels.size(); ++i) {
+                unsigned key = vertices.size()*i+v;
+                for (int j=0; j<adjlist[key].size(); ++j) {
+                    if (dists[adjlist[key][j]] == -1) { // 未訪問であれば
+                        dists[adjlist[key][j]] = dists[v] + 1;
+                        q.push(adjlist[key][j]);
+                    }
+                }
+            }
+        }
+
+       // 隣接リストを距離ラベルごとに分割
+        unordered_map<unsigned, vector<unsigned>> new_adjlist;
+        for (auto &i : adjlist) {
+            unsigned dist_i = dists[i.first % vertices.size()];
+            for (int j=0; j<i.second.size(); ++j) {
+                unsigned dist_j = dists[i.second[j]];
+                unsigned key = 3 * i.first;
+                if (dist_j == dist_i - 1) { key += 0; }
+                else if (dist_j == dist_i) { key += 1; }
+                else if (dist_j == dist_i + 1) { key += 2; }
+                else { cout << "Why?" << endl; }
+                if (!new_adjlist.contains(key)) { new_adjlist.insert(unordered_map<unsigned,vector<unsigned>>::value_type (key, {})); }
+                new_adjlist[key].push_back(i.second[j]);
+            }
+            adjlist.erase(i.first);
+        }
+        adjlist.swap(new_adjlist);
+        al_v_crs_len *= 3;
+
+        ofstream fout;
+        fout.open(workdir_path + "data/dfilter.bin", ios::out|ios::binary|ios::trunc);
+        if (!fout) {
+            cout << "Cannot open file." << endl;
+            exit(1);
+        }
+        fout.write(reinterpret_cast<char*>(dists.data()), dists.size() * sizeof(unsigned));
+        fout.close();
+    }
 
     ofstream fout1, fout2, fout3;
     fout1.open(workdir_path + "data/scan_v_crs.bin", ios::out|ios::binary|ios::trunc);
@@ -259,6 +315,7 @@ int main(int argc, char* argv[]) {
     << num_v_labels.size() << endl
     << num_e_labels.size() << endl
     << p1 << endl << p2 << endl << bs << endl;
+    fout1.close();
 
     return 0;
 }
