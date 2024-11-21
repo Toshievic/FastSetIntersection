@@ -20,9 +20,8 @@ int main(int argc, char* argv[]) {
         for (int i=0; i<3; ++i) {
             vector<unsigned*> stats;
             // GenericJoin executor(debug, &stats);
-            // AlphaGenericJoin executor(debug, &stats);
+            AlphaGenericJoin executor(debug, &stats);
             // BetaGenericJoin executor(debug, &stats);
-            GammaGenericJoin executor(debug, &stats);
             executor.decide_plan(&lg, &query);
             executor.run(method_name);
 
