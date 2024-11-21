@@ -20,6 +20,15 @@
         "initializer_list": "cpp",
         "bitset": "cpp",
         "*.tcc": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "algorithm": "cpp",
+        "__hash_table": "cpp",
+        "__tree": "cpp",
+        "array": "cpp",
+        "deque": "cpp",
+        "queue": "cpp",
+        "span": "cpp",
+        "stack": "cpp",
+        "locale": "cpp"
     }
 }

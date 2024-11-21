@@ -8,8 +8,8 @@ EXEC2_DEBUG = serialize_debug
 
 # オブジェクトファイル
 # 問合せ処理の実行に必要なOBJファイル
-OBJ = master.o util.o query.o labeled_graph.o generic_join.o alpha_generic_join.o main.o
-OBJ_DEBUG = master.debug.o util.debug.o query.debug.o labeled_graph.debug.o generic_join.debug.o alpha_generic_join.debug.o main.debug.o
+OBJ = master.o util.o query.o labeled_graph.o generic_join.o alpha_generic_join.o beta_generic_join.o gamma_generic_join.o main.o
+OBJ_DEBUG = master.debug.o util.debug.o query.debug.o labeled_graph.debug.o generic_join.debug.o alpha_generic_join.debug.o beta_generic_join.debug.o gamma_generic_join.debug.o main.debug.o
 # データセットのシリアライズに必要なOBJファイル
 OBJ_S = master.o util.o serialize_dataset.o
 OBJ_S_DEBUG = master.debug.o util.debug.o serialize_dataset.debug.o

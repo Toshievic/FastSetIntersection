@@ -8,6 +8,8 @@ unordered_map<string, string> dataset_master = {
     {"karate", "karate/"},
     {"epinions", "epinions/"},
     {"ego_twitter", "ego_twitter/"},
+    {"slashdot", "slashdot/"},
+    {"wiki_topcats", "wiki-topcats/"},
     {"amazon", "amazon/"},
     {"google", "google/"},
     {"berkstan", "berkstan/"},

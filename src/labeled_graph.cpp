@@ -136,7 +136,7 @@ void LabeledGraph::load() {
             at_end = true;
         }
         fin_av.read(reinterpret_cast<char*>(al_v_crs+current_ptr), num_block*sizeof(unsigned));
-        current_ptr += BUFFER_SIZE;
+        current_ptr += num_block;
     }
     unsigned al_v_crs_size = current_ptr;
 
@@ -189,7 +189,7 @@ void LabeledGraph::load() {
     // あればdfilterを読み込む
     ifstream fin_di(dist_file, ios::in|ifstream::ate|ios::binary);
     if (!fin_di) {
-        cout << "Cannot open file: " << twohop_file << endl;
+        cout << "Cannot open file: " << dist_file << endl;
     }
     else {
         unsigned di_size = static_cast<size_t>(fin_di.tellg()) / sizeof(unsigned);
@@ -210,12 +210,17 @@ void LabeledGraph::load() {
             fin_di.read(reinterpret_cast<char*>(dists+current_ptr), num_block*sizeof(unsigned));
             current_ptr += BUFFER_SIZE;
         }
-        // 距離差別に頂点数を集計
+        // 距離差別に集計
         unsigned counters[3];
-        for (int i=0; i<av_size; ++i) {
-            unsigned first = al_v_crs[i];
-            unsigned end = al_v_crs[i+1];
-            counters[i%3] += end - first;
+        for (int i=0; i<av_size-1; i+=3) {
+            unsigned base = al_v_crs[i];
+            unsigned first = al_v_crs[i+1];
+            unsigned second = al_v_crs[i+2];
+            unsigned third = al_v_crs[i+3];
+            if (base == third) { continue; }
+            if (base == first) { ++counters[0]; }
+            if (first == second) { ++counters[1]; }
+            if (second == third) { ++counters[2]; }
         }
         cout << "0: " << counters[0] << endl;
         cout << "1: " << counters[1] << endl;

@@ -13,7 +13,7 @@ void GenericJoin::decide_plan(LabeledGraph *lg, Query *query) {
     // 本来はここに実行計画の最適化が入る
     // vertex_order = {0,1,2};
     // vertex_order = {2,0,1};
-    // vertex_order = {0,2,1,3};
+    vertex_order = {0,2,1,3};
     // vertex_order = {0,2,3,1};
     // vertex_order = {2,3,1,0};
     // vertex_order = {0,1,3,2};
@@ -21,7 +21,7 @@ void GenericJoin::decide_plan(LabeledGraph *lg, Query *query) {
     // vertex_order = {1,3,2,0};
     // vertex_order = {1,2,3,0};
     // vertex_order = {1,2,0,3};
-    vertex_order = {0,1,2,3};
+    // vertex_order = {0,1,2,3};
     // vertex_order = {0,1,2,3,4};
     // vertex_order = {3,4,2,1,0};
     // vertex_order = {2,0,1,4,5,3};
@@ -129,7 +129,7 @@ void GenericJoin::run(string &method_name) {
         multiway_join();
     }
     Chrono_t end = get_time();
-    stat["runtime"] = to_string(get_msec_runtime(&start, &end));
+    runtime = get_msec_runtime(&start, &end);
     summarize();
 }
 
@@ -559,24 +559,19 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
 
 
 void GenericJoin::summarize() {
-    stat["dataset"] = lg->dataset_name;
-    stat["query"] = q->query_name;
-    stat["method"] = executor_name;
-    stat["vertex_order"] = join(vertex_order, "-->");
-    stat["result_size"] = to_string(result_size);
-
     cout << "--- Basic Info ---" << endl;
-    cout << "Method: " << stat["method"] << "\t\tDataset: " << stat["dataset"] << "\t\tQuery: " << stat["query"] << endl;
+    cout << "Method: " << executor_name << "\t\tDataset: " << lg->dataset_name << "\t\tQuery: " << q->query_name << endl;
 
     cout << "--- Runtimes ---" << endl;
-    cout << "multiway join:\t\t\t" << stat["runtime"] << " [msec]" << endl;
+    cout << "multiway join:\t\t\t" << to_string(runtime) << " [msec]" << endl;
 
     cout << "--- Results ---" << endl;
-    cout << "result size:\t\t\t" << stat["result_size"] << endl;
+    cout << "result size:\t\t\t" << to_string(result_size) << endl;
     cout << "number of intermediate tuples:\t" << intersection_count << endl;
+    cout << "number of comparisons:\t\t" << num_comparison << endl;
 
     cout << "--- Details ---" << endl;
-    cout << "No interseciton counts of each depth:\t\t\t" << endl;
+    cout << "No intersection counts of each depth:\t\t\t" << endl;
     // print(empty_num);
     unsigned total = 0;
     for (auto &itr : empty_num) { total += itr.second; }
@@ -584,13 +579,13 @@ void GenericJoin::summarize() {
     // stat["empty_num"] = to_string(total);
     // cout << "No need: " << to_string((double)(al_len_total - match_num_total)/al_len_total) << endl;
 
-    // cout << "The interseciton counts of each depth:\t\t\t" << endl;
+    // cout << "The intersection counts of each depth:\t\t\t" << endl;
     // print(update_num);
     // total = 0;
     // for (auto &itr : update_num) { total += itr.second; }
     // cout << "Total: " << total << endl;
 
-    // cout << "No interseciton of each depth:\t\t\t" << endl;
+    // cout << "No intersection of each depth:\t\t\t" << endl;
     // print(empty_runtime);
     // double total_d = 0;
     // for (auto &itr : empty_runtime) { total_d += itr.second; }
@@ -602,7 +597,7 @@ void GenericJoin::summarize() {
     for (auto &itr : lev_runtime) { total_d += itr.second; }
     cout << "Total: " << total_d << endl;
 
-    stats->push_back(stat);
+    // stats->push_back(stat);
 
     // ofstream fout("/Users/toshihiroito/implements/WebDB2024/output/special/bs_"+get_timestamp()+".txt");
     // for (int i=0; i<=BITSET_SIZE; ++i) {

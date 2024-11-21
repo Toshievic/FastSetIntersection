@@ -88,78 +88,99 @@ int main(int argc, char* argv[]) {
         adjlist[bwd_al_key].push_back(src_id);
     }
 
-    // adjlistを用いて2-hop indexを作成
-    vector<tuple<unsigned long long,unsigned long long, int>> twohop_idx;
-    for (auto &v: vertices) {
-        // ある方向で隣接する頂点を列挙
-        for (int dir0=0; dir0<2; ++dir0) {
-            unordered_set<unsigned> neighbors;
-            for (int i=0; i<num_v_labels.size()*num_e_labels.size(); ++i) {
-                unsigned key = vertices.size()*(dir0*num_v_labels.size()*num_e_labels.size()+i)+v.first;
-                for (int j=0; j<adjlist[key].size(); ++j) {
-                    neighbors.insert(adjlist[key][j]);
-                }
-            }
-            if (neighbors.size() == 0) { continue; }
-            // 2-hop setの列挙
-            for (int dir1=0; dir1<2; ++dir1) {
-                unordered_set<unsigned> two_hops;
-                for (auto &n : neighbors) {
-                    for (int i=0; i<num_v_labels.size()*num_e_labels.size(); ++i) {
-                        unsigned key = vertices.size()*(dir1*num_v_labels.size()*num_e_labels.size()+i)+n;
-                        for (int j=0; j<adjlist[key].size(); ++j) {
-                            two_hops.insert(adjlist[key][j]);
-                        }
-                    }
-                }
-                // 2-hop indexへ追加
-                for (auto &n : two_hops) { twohop_idx.push_back({v.first, n, (dir0<<1)+dir1}); }
-            }
-        }
-    }
-    // 2-hop indexからbitmapを生成
-    vector<unsigned long long> twohop_bs;
-    unsigned long long bs_size = 1;
-    while (bs_size < twohop_idx.size()) { bs_size *= 2; }
-    // twohop_bsの要素数=(twohop_idxのサイズを超える最小の2の冪乗)*8/64
-    bs_size = bs_size >> 3;
-    // twohop_bsの要素数上限を8GB=(要素数2^30)に設定
-    if (bs_size > (1<<30)) {bs_size = (1<<30);}
-    twohop_bs.resize(bs_size);
-    fill(twohop_bs.begin(), twohop_bs.end(), 0);
-    // bitmapで使用可能なビット数をbsとする
-    unsigned long long bs = bs_size << 6;
-
-    // 元頂点ID,隣接頂点IDのハッシュ値を決定
-    unsigned long long p1,p2;
-    unsigned long long p_min = bs / vertices.size();
-    // p_min以上の2つの素数をp1,p2とする
-    while (true) {
-        if (is_prime(p_min)) { p1 = p_min; ++p_min; break; }
-        else { ++p_min; }
-    }
-    while (true) {
-        if (is_prime(p_min)) { p2 = p_min; break; }
-        else { ++p_min; }
-    }
-    cout << "p1: " << p1 << endl;
-    cout << "p2: " << p2 << endl << endl;
-
-    constexpr unsigned long long base = 1;
-    for (int i=0; i<twohop_idx.size(); ++i) {
-        unsigned long long h = (get<0>(twohop_idx[i])*p1 + get<1>(twohop_idx[i]) + get<2>(twohop_idx[i])*vertices.size()) & (bs-1);
-        unsigned long long x = (base << (h&63));
-        if ((twohop_bs[h>>6] & x) == 0) { twohop_bs[h>>6] += x; }
-    }
-
-    // validation: 2-hop bsの1-bit rateを求める
-    unsigned long long one_bits = 0;
-    for (int i=0; i<twohop_bs.size(); ++i) { one_bits += popcount(twohop_bs[i]); }
-
     // v_crsの要素数を決定
     unsigned scan_v_crs_len = 2 * num_e_labels.size() * num_v_labels.size() * num_v_labels.size();
     unsigned al_v_crs_len = 2 * num_e_labels.size() * num_v_labels.size() * vertices.size();
     string workdir_path = getenv("WORKDIR_PATH");
+
+    unsigned long long p1,p2,bs;
+    if (true) {
+        // adjlistを用いて2-hop indexを作成
+        vector<tuple<unsigned long long,unsigned long long, int>> twohop_idx;
+        for (auto &v: vertices) {
+            // ある方向で隣接する頂点を列挙
+            for (int dir0=0; dir0<2; ++dir0) {
+                unordered_set<unsigned> neighbors;
+                for (int i=0; i<num_v_labels.size()*num_e_labels.size(); ++i) {
+                    unsigned key = vertices.size()*(dir0*num_v_labels.size()*num_e_labels.size()+i)+v.first;
+                    if (!adjlist.contains(key)) { continue; }
+                    for (int j=0; j<adjlist[key].size(); ++j) {
+                        neighbors.insert(adjlist[key][j]);
+                    }
+                }
+                if (neighbors.size() == 0) { continue; }
+                // 2-hop setの列挙
+                for (int dir1=0; dir1<2; ++dir1) {
+                    unordered_set<unsigned> two_hops;
+                    for (auto &n : neighbors) {
+                        for (int i=0; i<num_v_labels.size()*num_e_labels.size(); ++i) {
+                            unsigned key = vertices.size()*(dir1*num_v_labels.size()*num_e_labels.size()+i)+n;
+                            if (!adjlist.contains(key)) { continue; }
+                            for (int j=0; j<adjlist[key].size(); ++j) {
+                                two_hops.insert(adjlist[key][j]);
+                            }
+                        }
+                    }
+                    // 2-hop indexへ追加
+                    for (auto &n : two_hops) { twohop_idx.push_back({v.first, n, (dir0<<1)+dir1}); }
+                }
+            }
+        }
+        // 2-hop indexからbitmapを生成
+        vector<unsigned long long> twohop_bs;
+        unsigned long long bs_size = 1;
+        while (bs_size < twohop_idx.size()) { bs_size *= 2; }
+        // twohop_bsの要素数=(twohop_idxのサイズを超える最小の2の冪乗)*8/64
+        bs_size = bs_size >> 3;
+        // twohop_bsの要素数上限を8GB=(要素数2^30)に設定
+        if (bs_size > (1<<30)) {bs_size = (1<<30);}
+        twohop_bs.resize(bs_size);
+        fill(twohop_bs.begin(), twohop_bs.end(), 0);
+        // bitmapで使用可能なビット数をbsとする
+        bs = bs_size << 6;
+
+        // 元頂点ID,隣接頂点IDのハッシュ値を決定
+        unsigned long long p_min = bs / vertices.size();
+        // p_min以上の2つの素数をp1,p2とする
+        while (true) {
+            if (is_prime(p_min)) { p1 = p_min; ++p_min; break; }
+            else { ++p_min; }
+        }
+        while (true) {
+            if (is_prime(p_min)) { p2 = p_min; break; }
+            else { ++p_min; }
+        }
+        cout << "p1: " << p1 << endl;
+        cout << "p2: " << p2 << endl << endl;
+
+        constexpr unsigned long long base = 1;
+        for (int i=0; i<twohop_idx.size(); ++i) {
+            unsigned long long h = (get<0>(twohop_idx[i])*p1 + get<1>(twohop_idx[i]) + get<2>(twohop_idx[i])*vertices.size()) & (bs-1);
+            unsigned long long x = (base << (h&63));
+            if ((twohop_bs[h>>6] & x) == 0) { twohop_bs[h>>6] += x; }
+        }
+
+        // validation: 2-hop bsの1-bit rateを求める
+        unsigned long long one_bits = 0;
+        for (int i=0; i<twohop_bs.size(); ++i) { one_bits += popcount(twohop_bs[i]); }
+
+        const size_t block_size = 134217728;
+        size_t data_size = twohop_bs.size();
+        size_t num_blocks = (data_size + block_size - 1) / block_size;
+
+        ofstream fout;
+        fout.open(workdir_path + "data/2hop_bs.bin", ios::out|ios::binary|ios::trunc);
+        if (!fout) {
+            cout << "Cannot open file." << endl;
+            exit(1);
+        }
+        // 各ブロックを書き込み
+        for (size_t i=0; i<num_blocks; ++i) {
+            size_t start_idx = i * block_size;
+            size_t end_idx = min(start_idx+block_size, data_size);
+            fout.write(reinterpret_cast<const char*>(&twohop_bs[start_idx]), (end_idx - start_idx) * sizeof(unsigned long long));
+        }
+    }
 
     if (argc > 2) {
         cout << "DFilter mode" << endl;
@@ -176,6 +197,9 @@ int main(int argc, char* argv[]) {
             q.pop();
             for (int i=0; i<2*num_v_labels.size()*num_e_labels.size(); ++i) {
                 unsigned key = vertices.size()*i+v;
+                if (!adjlist.contains(key)) {
+                    continue;
+                }
                 for (int j=0; j<adjlist[key].size(); ++j) {
                     if (dists[adjlist[key][j]] == -1) { // 未訪問であれば
                         dists[adjlist[key][j]] = dists[v] + 1;
@@ -199,7 +223,6 @@ int main(int argc, char* argv[]) {
                 if (!new_adjlist.contains(key)) { new_adjlist.insert(unordered_map<unsigned,vector<unsigned>>::value_type (key, {})); }
                 new_adjlist[key].push_back(i.second[j]);
             }
-            adjlist.erase(i.first);
         }
         adjlist.swap(new_adjlist);
         al_v_crs_len *= 3;
@@ -260,11 +283,6 @@ int main(int argc, char* argv[]) {
         cout << "Cannot open file." << endl;
         exit(1);
     }
-    fout3.open(workdir_path + "data/2hop_bs.bin", ios::out|ios::binary|ios::trunc);
-    if (!fout3) {
-        cout << "Cannot open file." << endl;
-        exit(1);
-    }
 
     current_ptr = 0;
     for (int i=0; i<al_v_crs_len; ++i) {
@@ -279,31 +297,20 @@ int main(int argc, char* argv[]) {
     }
     fout1.write((const char *) &current_ptr, sizeof(unsigned));
 
-    const size_t block_size = 134217728;
-    size_t data_size = twohop_bs.size();
-    size_t num_blocks = (data_size + block_size - 1) / block_size;
-
-    // 各ブロックを書き込み
-    for (size_t i=0; i<num_blocks; ++i) {
-        size_t start_idx = i * block_size;
-        size_t end_idx = min(start_idx+block_size, data_size);
-        fout3.write(reinterpret_cast<const char*>(&twohop_bs[start_idx]), (end_idx - start_idx) * sizeof(unsigned long long));
-    }
-
     cout << "num_v: " << vertices.size() << endl;
     cout << "num_e: " << table.size() << endl;
     cout << "num_v_labels: " << num_v_labels.size() << endl;
     cout << "num_e_labels: " << num_e_labels.size() << endl;
     cout << "size of al_v_crs: " << al_v_crs_len+1 << endl;
     cout << "size of al_e_crs: " << current_ptr << endl;
-    cout << "size of 2-hop index: " << twohop_idx.size() << endl;
-    cout << "Filling rate: " << (float) twohop_idx.size() / (vertices.size()*vertices.size()*4) << endl;
-    cout << "size of 2-hop bs: " << twohop_bs.size() << endl;
-    cout << "ideal 1-bit rate of 2-hop bs: " << (float) twohop_idx.size() / (twohop_bs.size()<<6) << endl;
-    cout << "actual 1-bit rate of 2-hop bs: " << (float) one_bits / (twohop_bs.size()<<6) << endl;
+    // cout << "size of 2-hop index: " << twohop_idx.size() << endl;
+    // cout << "Filling rate: " << (float) twohop_idx.size() / (vertices.size()*vertices.size()*4) << endl;
+    // cout << "size of 2-hop bs: " << twohop_bs.size() << endl;
+    // cout << "ideal 1-bit rate of 2-hop bs: " << (float) twohop_idx.size() / (twohop_bs.size()<<6) << endl;
+    // cout << "actual 1-bit rate of 2-hop bs: " << (float) one_bits / (twohop_bs.size()<<6) << endl;
     fout1.close();
     fout2.close();
-    fout3.close();
+    // fout3.close();
 
 
     fout1.open(workdir_path + "data/data_info.txt", ios::out|ios::trunc);

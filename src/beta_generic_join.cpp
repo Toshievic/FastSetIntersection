@@ -1,6 +1,9 @@
 #include "../include/executor.hpp"
 
 #include <cstring>
+#include <algorithm>
+
+constexpr unsigned long long base = 1;
 
 
 void BetaGenericJoin::setup() {
@@ -36,11 +39,10 @@ void BetaGenericJoin::setup() {
         tmp_dsps[dst-2].push_back({is_bwd,el,src,dl});
         if (max_size < tmp_dsps[dst-2].size()) { max_size = tmp_dsps[dst-2].size(); }
     }
-    // indicesの配列長は固定のため、考えうるintersection処理を行う最大のリスト数分の領域を確保
-    indices = new pair<unsigned*,unsigned*>[max_size];
 
     result_store.resize(num_variables-2);
     validate_pool.resize(num_variables-2);
+    dist_base.resize(num_variables-2);
     match_nums.resize(num_variables-2);
     bs_store.resize(num_variables-2);
     calc_level = new int[num_variables];
@@ -52,6 +54,7 @@ void BetaGenericJoin::setup() {
         descriptors[i].resize(s);
         result_store[i].resize(s);
         validate_pool[i].resize(s);
+        dist_base[i].resize(s);
         match_nums[i].resize(s);
         calc_level[i] = -1;
         bs_store[i] = new bitset<BITSET_SIZE>[s];
@@ -59,7 +62,7 @@ void BetaGenericJoin::setup() {
             descriptors[i][j] = tmp_dsps[i][j];
             result_store[i][j] = new unsigned*[3];
             match_nums[i][j] = new int[3];
-            for (int k=0; k=3; ++k) {
+            for (int k=0; k<3; ++k) {
                 result_store[i][j][k] = new unsigned[lg->max_degree];
                 match_nums[i][j][k] = 0;
             }
@@ -87,6 +90,7 @@ void BetaGenericJoin::setup() {
 
     result_size = 0;
     intersection_count = 0;
+    num_comparison = 0;
     keys = new unsigned[num_variables];
     for (int i=0; i<3; ++i) { dist_counter[i] = 0; }
 
@@ -100,32 +104,58 @@ void BetaGenericJoin::setup() {
 
 
 void BetaGenericJoin::recursive_join(int current_depth) {
-    find_assignables(current_depth);
+    find_assignables_v2(current_depth);
     int vir_depth = current_depth-2;
 
     int *s = match_nums[vir_depth].back();
 
     if (current_depth == num_variables-1) {
-        for (int i=0; i<3; ++i) {
-            for (int j=0; j<s[i]; ++j) { ++result_size; }
-        }
+        for (int i=0; i<s[0]; ++i) { ++result_size; }
+        for (int i=0; i<s[1]; ++i) { ++result_size; }
+        for (int i=0; i<s[2]; ++i) { ++result_size; }
     }
     else {
         unsigned **result_itr = result_store[vir_depth].back();
-        for (int i=0; i<3; ++i) {
-            for (int j=0; j<s[i]; ++j) {
-                keys[current_depth] = result_itr[i][j];
-                recursive_join(current_depth+1);
-                if (cache_switch.contains(current_depth)) {
-                    for (int k=0; k<cache_switch[current_depth].size(); ++k) {
-                        auto [v,level] = cache_switch[current_depth][k];
-                        available_level[v] = min(available_level[v], level);
-                    }
+        for (int j=0; j<s[0]; ++j) {
+            keys[current_depth] = result_itr[0][j];
+            recursive_join(current_depth+1);
+            if (cache_switch.contains(current_depth)) {
+                for (int k=0; k<cache_switch[current_depth].size(); ++k) {
+                    auto [v,level] = cache_switch[current_depth][k];
+                    available_level[v] = min(available_level[v], level);
                 }
-                if (calc_level[current_depth] > -1) {
-                    available_level[calc_level[current_depth]] = 0;
-                    calc_level[current_depth] = -1;
+            }
+            if (calc_level[current_depth] > -1) {
+                available_level[calc_level[current_depth]] = 0;
+                calc_level[current_depth] = -1;
+            }
+        }
+        for (int j=0; j<s[1]; ++j) {
+            keys[current_depth] = result_itr[1][j];
+            recursive_join(current_depth+1);
+            if (cache_switch.contains(current_depth)) {
+                for (int k=0; k<cache_switch[current_depth].size(); ++k) {
+                    auto [v,level] = cache_switch[current_depth][k];
+                    available_level[v] = min(available_level[v], level);
                 }
+            }
+            if (calc_level[current_depth] > -1) {
+                available_level[calc_level[current_depth]] = 0;
+                calc_level[current_depth] = -1;
+            }
+        }
+        for (int j=0; j<s[2]; ++j) {
+            keys[current_depth] = result_itr[2][j];
+            recursive_join(current_depth+1);
+            if (cache_switch.contains(current_depth)) {
+                for (int k=0; k<cache_switch[current_depth].size(); ++k) {
+                    auto [v,level] = cache_switch[current_depth][k];
+                    available_level[v] = min(available_level[v], level);
+                }
+            }
+            if (calc_level[current_depth] > -1) {
+                available_level[calc_level[current_depth]] = 0;
+                calc_level[current_depth] = -1;
             }
         }
     }
@@ -138,18 +168,28 @@ void BetaGenericJoin::find_assignables(int current_depth) {
     int arr_num = result_store[vir_depth].size();
     // 最終的なintersection結果を利用可能な場合はすぐreturn
     if (level == arr_num-1) { return; }
-    for (int i=level==-2 ? 0 : level+1; i<arr_num; ++i) { match_nums[vir_depth][i] = 0; }
-    int min_dist = -1; int max_dist = -1; int dist;
+    for (int i=level==-2 ? 0 : level+1; i<arr_num; ++i) {
+        match_nums[vir_depth][i][0] = 0;
+        match_nums[vir_depth][i][1] = 0;
+        match_nums[vir_depth][i][2] = 0;
+    }
 
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
-        for (unsigned i=0; i<3; ++i) {
-            unsigned *first = lg->al_e_crs + lg->al_v_crs[base_idx+i];
-            unsigned *last = lg->al_e_crs + lg->al_v_crs[base_idx+i+1];
-            match_nums[vir_depth][0][i] = last - first;
-            memcpy(result_store[vir_depth][0][i], first, sizeof(unsigned)*(last-first));
-        }
+        unsigned *base = lg->al_e_crs + lg->al_v_crs[base_idx];
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[base_idx+1];
+        unsigned *second = lg->al_e_crs + lg->al_v_crs[base_idx+2];
+        unsigned *third = lg->al_e_crs + lg->al_v_crs[base_idx+3];
+
+        match_nums[vir_depth][0][0] = first - base;
+        match_nums[vir_depth][0][1] = second - first;
+        match_nums[vir_depth][0][2] = third - second;
+
+        memcpy(result_store[vir_depth][0][0], base, sizeof(unsigned)*(first-base));
+        memcpy(result_store[vir_depth][0][1], first, sizeof(unsigned)*(second-first));
+        memcpy(result_store[vir_depth][0][2], second, sizeof(unsigned)*(third-second));
+    
         if (arr_num == 1) {
             if (level == -2) { return; }
             if (has_full_cache.contains(current_depth)) { available_level[current_depth] = 0; }
@@ -157,41 +197,256 @@ void BetaGenericJoin::find_assignables(int current_depth) {
             return;
         }
         ++level;
-        dist = lg->dists[keys[src]];
-        min_dist = dist; max_dist = dist;
+        dist_base[vir_depth][0] = lg->dists[keys[src]] - 1;
     }
+    int min_dist = dist_base[vir_depth][0]; int max_dist = min_dist + 2;
 
     ++intersection_count;
     for (int i=level+1; i<arr_num; ++i) {
-        pair<unsigned*, unsigned*> it1 = {result_store[vir_depth][i-1], result_store[vir_depth][i-1]+match_nums[vir_depth][i-1]};
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
-        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+        // 距離ラベルの比較
+        int dist = lg->dists[keys[src]];
+        int dist_diff0 = dist - min_dist;
+        int dist_diff1 = max_dist - dist;
+        // srcの距離ラベルが元のラベルより1以上大きい
+        if (dist_diff0 > 1) { min_dist = dist-1; }
+        // srcの距離ラベルが元のラベルより1以上小さい
+        else if (dist_diff1 > 1) { max_dist = dist+1; }
+        // max_dist - min_distが負の値であれば解なし
+        if (max_dist < min_dist) { break; }
+        
+        unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
+        int lev1 = min_dist - dist_base[vir_depth][i-1];
+        int lev2 = dist_diff0 < 1 ? dist_diff0*-1 + 1 : 0;
+        int group_num = max_dist - min_dist + 1;
+        bool flg = false;
+        for (int j=0; j<group_num; ++j) {
+            pair<unsigned*, unsigned*> it1 = {
+                result_store[vir_depth][i-1][j+lev1],
+                result_store[vir_depth][i-1][j+lev1]+match_nums[vir_depth][i-1][j+lev1]};
+            pair<unsigned*, unsigned*> it2 = {
+                lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2],
+                lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2+1]};
 
-        pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
-
-        int match_num = 0;
-
-        while (it1.first != it1.second && it2.first != it2.second) {
-            if (*it1.first < *it2.first) {
-                ++it1.first;
-                while (it1.first != it1.second && *it1.first < *it2.first) {
+            int match_num = 0;
+            Chrono_t start = get_time();
+            while (it1.first != it1.second && it2.first != it2.second) {
+                if (*it1.first < *it2.first) {
                     ++it1.first;
-                }
-            } else if (*it1.first > *it2.first) {
-                ++it2.first;
-                while (it2.first != it2.second && *it1.first > *it2.first) {
+                    while (it1.first != it1.second && *it1.first < *it2.first) { ++it1.first; }
+                } else if (*it1.first > *it2.first) {
+                    ++it2.first;
+                    while (it2.first != it2.second && *it1.first > *it2.first) { ++it2.first; }
+                } else {
+                    result_store[vir_depth][i][j][match_num] = *it1.first;
+                    ++match_num;
+                    ++it1.first;
                     ++it2.first;
                 }
-            } else {
-                result_store[vir_depth][i][match_num] = *it1.first;
-                ++match_num;
-                ++it1.first;
-                ++it2.first;
+            }
+            Chrono_t end = get_time();
+            lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+            match_nums[vir_depth][i][j] = match_num;
+            if (match_num) { flg = true; }
+        }
+        dist_base[vir_depth][i] = min_dist;
+        if (!flg) { break; }
+    }
+
+    if (has_full_cache.contains(current_depth)) { available_level[current_depth]=arr_num-1; }
+    else { available_level[current_depth] = arr_num-2; }
+}
+
+
+void BetaGenericJoin::find_assignables_v2(int current_depth) {
+    int vir_depth = current_depth-2;
+    int level = available_level.contains(current_depth) ? available_level[current_depth] : -2;
+    int arr_num = result_store[vir_depth].size();
+    // 最終的なintersection結果を利用可能な場合はすぐreturn
+    if (level == arr_num-1) { return; }
+    for (int i=level==-2 ? 0 : level+1; i<arr_num; ++i) {
+        match_nums[vir_depth][i][0] = 0;
+        match_nums[vir_depth][i][1] = 0;
+        match_nums[vir_depth][i][2] = 0;
+    }
+
+    if (level < 0) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][0];
+        unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
+        unsigned *base = lg->al_e_crs + lg->al_v_crs[base_idx];
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[base_idx+1];
+        unsigned *second = lg->al_e_crs + lg->al_v_crs[base_idx+2];
+        unsigned *third = lg->al_e_crs + lg->al_v_crs[base_idx+3];
+
+        match_nums[vir_depth][0][0] = first - base;
+        match_nums[vir_depth][0][1] = second - first;
+        match_nums[vir_depth][0][2] = third - second;
+
+        memcpy(result_store[vir_depth][0][0], base, sizeof(unsigned)*(first-base));
+        memcpy(result_store[vir_depth][0][1], first, sizeof(unsigned)*(second-first));
+        memcpy(result_store[vir_depth][0][2], second, sizeof(unsigned)*(third-second));
+    
+        if (arr_num == 1) {
+            if (level == -2) { return; }
+            if (has_full_cache.contains(current_depth)) { available_level[current_depth] = 0; }
+            else { available_level[current_depth] = -1; }
+            return;
+        }
+        ++level;
+        dist_base[vir_depth][0] = lg->dists[keys[src]] - 1;
+    }
+    int min_dist = dist_base[vir_depth][0]; int max_dist = min_dist + 2;
+
+    for (int i=level+1; i<arr_num; ++i) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        // 距離ラベルの比較
+        int dist = lg->dists[keys[src]];
+        int dist_diff0 = dist - min_dist; int dist_diff1 = max_dist - dist;
+        // srcの距離ラベルが元のラベルより1以上大きい
+        if (dist_diff0 > 1) { min_dist = dist-1; }
+        // srcの距離ラベルが元のラベルより1以上小さい
+        else if (dist_diff1 > 1) { max_dist = dist+1; }
+        // max_dist - min_distが負の値であれば解なし
+        if (max_dist < min_dist) { break; }
+        
+        unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
+        int lev1 = min_dist - dist_base[vir_depth][i-1];
+        int lev2 = dist_diff0 < 1 ? dist_diff0*-1 + 1 : 0;
+        int group_num = max_dist - min_dist + 1;
+        bool flg = false;
+
+        for (int j=0; j<group_num; ++j) {
+            int it1_len = match_nums[vir_depth][i-1][j+lev1];
+            if (it1_len > 0) {
+                unsigned *it2_first = lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2];
+                unsigned *it2_second = lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2+1];
+                if (it2_first != it2_second) {
+                    unsigned *it1_first = result_store[vir_depth][i-1][j+lev1];
+                    unsigned *it1_second = result_store[vir_depth][i-1][j+lev1] + it1_len;
+                    int match_num = 0;
+                    ++intersection_count;
+                    while (it1_first != it1_second && it2_first != it2_second) {
+                        if (*it1_first < *it2_first) { ++it1_first; }
+                        else if (*it1_first > *it2_first) { ++it2_first; }
+                        else {
+                            result_store[vir_depth][i][j][match_num] = *it1_first;
+                            ++match_num;
+                            ++it1_first; ++it2_first;
+                        }
+                    }
+                    match_nums[vir_depth][i][j] = match_num;
+                    if (match_num > 0) { flg = true; }
+                }
             }
         }
-        match_nums[vir_depth][i] = match_num;
-        if (!match_num) { break; }
+        dist_base[vir_depth][i] = min_dist;
+        if (!flg) { break; }
     }
+
+    if (has_full_cache.contains(current_depth)) { available_level[current_depth]=arr_num-1; }
+    else { available_level[current_depth] = arr_num-2; }
+}
+
+
+void BetaGenericJoin::find_assignables_with_2hop(int current_depth) {
+    int vir_depth = current_depth-2;
+    int level = available_level.contains(current_depth) ? available_level[current_depth] : -2;
+    int arr_num = result_store[vir_depth].size();
+    // 最終的なintersection結果を利用可能な場合はすぐreturn
+    if (level == arr_num-1) { return; }
+    for (int i=level==-2 ? 0 : level+1; i<arr_num; ++i) {
+        match_nums[vir_depth][i][0] = 0;
+        match_nums[vir_depth][i][1] = 0;
+        match_nums[vir_depth][i][2] = 0;
+    }
+
+    if (level < 0) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][0];
+        unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
+        unsigned *base = lg->al_e_crs + lg->al_v_crs[base_idx];
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[base_idx+1];
+        unsigned *second = lg->al_e_crs + lg->al_v_crs[base_idx+2];
+        unsigned *third = lg->al_e_crs + lg->al_v_crs[base_idx+3];
+
+        match_nums[vir_depth][0][0] = first - base;
+        match_nums[vir_depth][0][1] = second - first;
+        match_nums[vir_depth][0][2] = third - second;
+
+        memcpy(result_store[vir_depth][0][0], base, sizeof(unsigned)*(first-base));
+        memcpy(result_store[vir_depth][0][1], first, sizeof(unsigned)*(second-first));
+        memcpy(result_store[vir_depth][0][2], second, sizeof(unsigned)*(third-second));
+    
+        if (arr_num == 1) {
+            if (level == -2) { return; }
+            if (has_full_cache.contains(current_depth)) { available_level[current_depth] = 0; }
+            else { available_level[current_depth] = -1; }
+            return;
+        }
+        ++level;
+        dist_base[vir_depth][0] = lg->dists[keys[src]] - 1;
+        validate_pool[vir_depth][level] = (unsigned long long)keys[src]*lg->p1 + (dir<<1)*lg->num_v;
+    }
+    int min_dist = dist_base[vir_depth][0]; int max_dist = min_dist + 2;
+
+    for (int i=level+1; i<arr_num; ++i) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        // 2-hop indexによる枝刈り
+        unsigned long long base_h = keys[src] + (dir^1) * lg->num_v;
+        for (int j=0; j<i; ++j) {
+            unsigned long long h = (validate_pool[vir_depth][j] + base_h) & (lg->bs-1);
+            if ((lg->twohop_bs[h>>6] & (base<<(h&63))) == 0) {
+                if (has_full_cache.contains(current_depth)) { available_level[current_depth]=arr_num-1; }
+                else { available_level[current_depth] = arr_num-2; }
+                match_nums[vir_depth][i][0] = 0;
+                match_nums[vir_depth][i][1] = 0;
+                match_nums[vir_depth][i][2] = 0;
+                return;
+            }
+        }
+
+        // 距離ラベルの比較
+        int dist = lg->dists[keys[src]];
+        int dist_diff0 = dist - min_dist; int dist_diff1 = max_dist - dist;
+        // srcの距離ラベルが元のラベルより1以上大きい
+        if (dist_diff0 > 1) { min_dist = dist-1; }
+        // srcの距離ラベルが元のラベルより1以上小さい
+        else if (dist_diff1 > 1) { max_dist = dist+1; }
+        // max_dist - min_distが負の値であれば解なし
+        if (max_dist < min_dist) { break; }
+        
+        unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
+        int lev1 = min_dist - dist_base[vir_depth][i-1];
+        int lev2 = dist_diff0 < 1 ? dist_diff0*-1 + 1 : 0;
+        int group_num = max_dist - min_dist + 1;
+        bool flg = false;
+
+        for (int j=0; j<group_num; ++j) {
+            pair<unsigned*, unsigned*> it1 = {
+                result_store[vir_depth][i-1][j+lev1],
+                result_store[vir_depth][i-1][j+lev1]+match_nums[vir_depth][i-1][j+lev1]};
+            pair<unsigned*, unsigned*> it2 = {
+                lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2],
+                lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2+1]};
+
+            int match_num = 0;
+            ++intersection_count;
+            while (it1.first != it1.second && it2.first != it2.second) {
+                if (*it1.first < *it2.first) { ++it1.first;}
+                else if (*it1.first > *it2.first) { ++it2.first;}
+                else {
+                    result_store[vir_depth][i][j][match_num] = *it1.first;
+                    ++match_num;
+                    ++it1.first; ++it2.first;
+                }
+            }
+            match_nums[vir_depth][i][j] = match_num;
+            if (match_num) { flg = true; }
+        }
+        dist_base[vir_depth][i] = min_dist;
+        if (!flg) { break; }
+        validate_pool[vir_depth][i] = keys[src] * lg->p1 + (dir<<1) * lg->num_v;
+    }
+
     if (has_full_cache.contains(current_depth)) { available_level[current_depth]=arr_num-1; }
     else { available_level[current_depth] = arr_num-2; }
 }

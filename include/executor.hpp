@@ -19,8 +19,8 @@ public:
         {"2hop", 3}
     };
     int method_id;
-    unordered_map<string,string> stat;
-    vector<unordered_map<string,string>> *stats;
+    double runtime;
+    vector<unsigned*> *stats;
     LabeledGraph *lg;
     Query *q;
     int num_variables;
@@ -42,6 +42,7 @@ public:
     unsigned long result_size;
     unsigned intersection_count;
     unsigned long match_num_total, al_len_total;
+    unsigned num_comparison;
     unordered_map<int, unsigned> update_num, empty_num;
     unordered_map<int, double> lev_runtime, empty_runtime;
 
@@ -54,7 +55,7 @@ public:
     vector<unsigned> bit_num_stat;
 
     GenericJoin() {}
-    GenericJoin(bool b, vector<unordered_map<string,string>> *stats) {
+    GenericJoin(bool b, vector<unsigned*> *stats) {
         debug = b;
         this->stats = stats;
         this->executor_name = "GJ";
@@ -77,9 +78,10 @@ public:
 
 
 class AlphaGenericJoin : public GenericJoin {
-public:
+private:
     vector<vector<unsigned *>> result_store;
     vector<vector<int>> match_nums;
+public:
     unordered_map<int,int> available_level;
     unordered_map<int,vector<pair<int,int>>> cache_switch;
     unordered_set<int> has_full_cache;
@@ -90,7 +92,7 @@ public:
     unsigned dist_counter[3];
 
     using GenericJoin::GenericJoin;
-    AlphaGenericJoin(bool b, vector<unordered_map<string,string>> *stats) {
+    AlphaGenericJoin(bool b, vector<unsigned*> *stats) {
         debug = b;
         this->stats = stats;
         this->executor_name = "AGJ";
@@ -100,6 +102,7 @@ public:
     void multiway_join();
     void recursive_join(int current_depth);
     void find_assignables(int current_depth);
+    void find_assignables_v2(int current_depth);
     void find_assignables_with_bitset(int current_depth);
     void find_assignables_with_2hop(int current_depth);
     void find_assignables_exp(int current_depth);
@@ -109,13 +112,38 @@ public:
 class BetaGenericJoin : public AlphaGenericJoin {
 public:
     vector<vector<unsigned **>> result_store;
+    vector<vector<int>> dist_base;
     vector<vector<int *>> match_nums;
+    unsigned int** tmp_result_store;
 
     using AlphaGenericJoin::AlphaGenericJoin;
-    BetaGenericJoin(bool b, vector<unordered_map<string,string>> *stats) {
+    BetaGenericJoin(bool b, vector<unsigned*> *stats) {
         debug = b;
         this->stats = stats;
         this->executor_name = "BGJ";
+    }
+
+    void setup();
+    void recursive_join(int current_depth);
+    void find_assignables(int current_depth);
+    void find_assignables_v2(int current_depth);
+    void find_assignables_with_2hop(int current_depth);
+};
+
+
+class GammaGenericJoin : public AlphaGenericJoin {
+public:
+    vector<vector<unsigned *>> result_store;
+    vector<vector<int>> dist_base;
+    vector<vector<unsigned *>> match_nums;
+    pair<unsigned*,unsigned*> indices[6];
+    unsigned deg;
+
+    using AlphaGenericJoin::AlphaGenericJoin;
+    GammaGenericJoin(bool b, vector<unsigned*> *stats) {
+        debug = b;
+        this->stats = stats;
+        this->executor_name = "GGJ";
     }
 
     void setup();

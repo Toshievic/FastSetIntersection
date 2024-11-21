@@ -18,8 +18,9 @@ typedef chrono::high_resolution_clock::time_point Chrono_t;
 
 // related file
 vector<string> get_file_paths(string folder_path);
-void export_summaries(vector<unordered_map<string,string>> &summaries, string output_file_path);
+void export_summaries(vector<unordered_map<string,unsigned>> &summaries, string output_file_path);
 void export_summaries(vector<tuple<unsigned,unsigned,unsigned>> &summaries, string output_file_path);
+void export_summaries(vector<unsigned*> &summaries, string output_file_path);
 vector<string> read_block(ifstream &ifs_file, char delim);
 vector<vector<unsigned>> read_csv(ifstream &ifs_file, char delim);
 vector<vector<string>> read_table(ifstream &ifs_file, char delim);

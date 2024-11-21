@@ -11,7 +11,6 @@ int main(int argc, char* argv[]) {
     bool debug = false;
 
     LabeledGraph lg(debug);
-    vector<unordered_map<string,string>> stats;
 
     string query_sets = "test";
 
@@ -19,13 +18,16 @@ int main(int argc, char* argv[]) {
     vector<Query> queries = load_queries(query_sets, debug);
     for (auto &query : queries) {
         for (int i=0; i<3; ++i) {
-            GenericJoin executor(debug, &stats);
+            vector<unsigned*> stats;
+            // GenericJoin executor(debug, &stats);
             // AlphaGenericJoin executor(debug, &stats);
+            // BetaGenericJoin executor(debug, &stats);
+            GammaGenericJoin executor(debug, &stats);
             executor.decide_plan(&lg, &query);
             executor.run(method_name);
+
+            // string output_file_path = "../result_2/" + get_timestamp() + ".csv";
+            // export_summaries(stats, output_file_path);
         }
     }
-
-    // string output_file_path = "../result/20240727/" + get_timestamp() + ".csv";
-    // export_summaries(stats, output_file_path);
 }

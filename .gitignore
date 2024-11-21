@@ -1,6 +1,12 @@
 *.o
+analysis
 data
+data_store
 result
+result_2
 output
 .env
 .DS_store
+.venv
+.python-version
+*.png

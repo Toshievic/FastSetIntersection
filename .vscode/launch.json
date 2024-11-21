@@ -9,7 +9,7 @@
         "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/src/exec_debug",
-        "args": ["2hop"],
+        "args": [],
         "envFile": "${workspaceFolder}/.env",
         "cwd": "${workspaceFolder}",
         },
@@ -18,7 +18,7 @@
         "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/src/serialize_debug",
-        "args": ["karate"],
+        "args": ["karate","dist"],
         "envFile": "${workspaceFolder}/.env",
         "cwd": "${workspaceFolder}",
         }

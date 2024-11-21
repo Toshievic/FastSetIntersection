@@ -119,9 +119,7 @@ void AlphaGenericJoin::multiway_join() {
                 }
             }
         }
-
         recursive_join(2);
-
         if (cache_switch.contains(1)) {
             for (int j=0; j<cache_switch[1].size(); ++j) {
                 auto [v, level] = cache_switch[1][j];
@@ -135,7 +133,7 @@ void AlphaGenericJoin::multiway_join() {
 void AlphaGenericJoin::recursive_join(int current_depth) {
     switch (method_id) {
         case 0:
-            find_assignables(current_depth);
+            find_assignables_v2(current_depth);
             break;
         case 1:
             find_assignables_exp(current_depth);
@@ -200,6 +198,7 @@ void AlphaGenericJoin::find_assignables(int current_depth) {
         ++level;
     }
     ++intersection_count;
+    
     for (int i=level+1; i<arr_num; ++i) {
         pair<unsigned*, unsigned*> it1 = {result_store[vir_depth][i-1], result_store[vir_depth][i-1]+match_nums[vir_depth][i-1]};
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
@@ -208,7 +207,9 @@ void AlphaGenericJoin::find_assignables(int current_depth) {
         pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
 
         int match_num = 0;
-
+        num_comparison = 0;
+        // if (it1.first == it1.second || it2.first == it2.second) { ++num_comparison; }
+        // Chrono_t start = get_time();
         while (it1.first != it1.second && it2.first != it2.second) {
             if (*it1.first < *it2.first) {
                 ++it1.first;
@@ -223,8 +224,59 @@ void AlphaGenericJoin::find_assignables(int current_depth) {
             } else {
                 result_store[vir_depth][i][match_num] = *it1.first;
                 ++match_num;
-                ++it1.first;
-                ++it2.first;
+                ++it1.first; ++it2.first;
+            }
+        }
+        // Chrono_t end = get_time();
+        // lev_runtime[current_depth] += get_msec_runtime(&start, &end);
+        match_nums[vir_depth][i] = match_num;
+        if (!match_num) { break; }
+    }
+    if (has_full_cache.contains(current_depth)) { available_level[current_depth]=arr_num-1; }
+    else { available_level[current_depth] = arr_num-2; }
+}
+
+
+void AlphaGenericJoin::find_assignables_v2(int current_depth) {
+    int vir_depth = current_depth-2;
+    int level = available_level.contains(current_depth) ? available_level[current_depth] : -2;
+    int arr_num = result_store[vir_depth].size();
+    // 最終的なintersection結果を利用可能な場合はすぐreturn
+    if (level == arr_num-1) { return; }
+    for (int i=level==-2 ? 0 : level+1; i<arr_num; ++i) { match_nums[vir_depth][i] = 0; }
+
+    if (level < 0) {
+        auto [dir,el,src,dl] = descriptors[vir_depth][0];
+        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
+        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        match_nums[vir_depth][0] = last - first;
+        memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
+        if (arr_num == 1) {
+            if (level == -2) { return; }
+            if (has_full_cache.contains(current_depth)) { available_level[current_depth] = 0; }
+            else { available_level[current_depth] = -1; }
+            return;
+        }
+        ++level;
+    }
+    
+    for (int i=level+1; i<arr_num; ++i) {
+        pair<unsigned*, unsigned*> it1 = {result_store[vir_depth][i-1], result_store[vir_depth][i-1]+match_nums[vir_depth][i-1]};
+        auto [dir,el,src,dl] = descriptors[vir_depth][i];
+        unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
+
+        pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
+
+        int match_num = 0;
+        ++intersection_count;
+        while (it1.first != it1.second && it2.first != it2.second) {
+            if (*it1.first < *it2.first) { ++it1.first;}
+            else if (*it1.first > *it2.first) { ++it2.first;}
+            else {
+                result_store[vir_depth][i][match_num] = *it1.first;
+                ++match_num;
+                ++it1.first; ++it2.first;
             }
         }
         match_nums[vir_depth][i] = match_num;
@@ -356,21 +408,12 @@ void AlphaGenericJoin::find_assignables_with_2hop(int current_depth) {
         int match_num = 0;
 
         while (it1.first != it1.second && it2.first != it2.second) {
-            if (*it1.first < *it2.first) {
-                ++it1.first;
-                while (it1.first != it1.second && *it1.first < *it2.first) {
-                    ++it1.first;
-                }
-            } else if (*it1.first > *it2.first) {
-                ++it2.first;
-                while (it2.first != it2.second && *it1.first > *it2.first) {
-                    ++it2.first;
-                }
-            } else {
+            if (*it1.first < *it2.first) { ++it1.first; }
+            else if (*it1.first > *it2.first) { ++it2.first; }
+            else {
                 result_store[vir_depth][i][match_num] = *it1.first;
                 ++match_num;
-                ++it1.first;
-                ++it2.first;
+                ++it1.first; ++it2.first;
             }
         }
         match_nums[vir_depth][i] = match_num;

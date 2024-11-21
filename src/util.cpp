@@ -25,7 +25,29 @@ vector<string> get_file_paths(string folder_path) {
     return file_paths;
 };
 
-void export_summaries(vector<unordered_map<string,string>> &summaries, string output_file_path) {
+void export_summaries(vector<unsigned*> &summaries, string output_file_path) {
+    // まずcolumnを特定
+    unordered_map<string,int> columns;
+    vector<string> inv_cols = {"length_1", "length_2", "num_match", "num_compare", "num_inc_1", "num_inc_2"};
+
+    ofstream output_csv(output_file_path);
+    if (!output_csv.is_open()) { cerr << "cannot open file." << endl; }
+
+    // write header
+    for (int i=0; i<inv_cols.size()-1; i++) { output_csv << inv_cols[i] << ","; }
+    output_csv << inv_cols.back() << endl;
+
+    // write body
+    for (auto &summary : summaries) {
+        output_csv << (to_string(summary[0]) + "," + to_string(summary[1]) + ","
+        + to_string(summary[2]) + "," + to_string(summary[3]) + ","
+        + to_string(summary[4]) + "," + to_string(summary[5]) + "\n");
+    }
+
+    output_csv.close();
+}
+
+void export_summaries(vector<unordered_map<string,unsigned>> &summaries, string output_file_path) {
     // まずcolumnを特定
     unordered_map<string,int> columns;
     vector<string> inv_cols;
@@ -50,7 +72,7 @@ void export_summaries(vector<unordered_map<string,string>> &summaries, string ou
     // write body
     for (auto &summary : summaries) {
         vector<string> tmp(inv_cols.size());
-        for (auto &itr : summary) { tmp[columns[itr.first]] = itr.second; }
+        for (auto &itr : summary) { tmp[columns[itr.first]] = to_string(itr.second); }
         for (int i=0; i<tmp.size()-1; i++) { output_csv << tmp[i] << ","; }
         output_csv << tmp.back() << endl;
     }
