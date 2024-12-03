@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
     unsigned long long p1,p2,bs;
     if (true) {
         // adjlistを用いて2-hop indexを作成
-        vector<tuple<unsigned long long,unsigned long long, int>> twohop_idx;
+        vector<tuple<unsigned long long, unsigned long long, int>> twohop_idx;
         for (auto &v: vertices) {
             // ある方向で隣接する頂点を列挙
             for (int dir0=0; dir0<2; ++dir0) {

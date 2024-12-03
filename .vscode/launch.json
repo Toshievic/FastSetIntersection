@@ -8,17 +8,16 @@
         "name": "debug_exec", //好きな名前を設定。
         "type": "lldb",
         "request": "launch",
-        "program": "${workspaceFolder}/src/exec_debug",
-        "args": [],
-        "envFile": "${workspaceFolder}/.env",
+        "program": "${workspaceFolder}/exec_debug.out",
+        "args": ["--data_dirpath", "${cwd}/data/slashdot", "--query_filepath", "${cwd}/query/Q1_n_slashdot.txt", "--method", "agg"],
         "cwd": "${workspaceFolder}",
         },
         {
         "name": "debug_serialize", //好きな名前を設定。
         "type": "lldb",
         "request": "launch",
-        "program": "${workspaceFolder}/src/serialize_debug",
-        "args": ["karate","dist"],
+        "program": "${workspaceFolder}/serialize_debug.out",
+        "args": ["--input_dirpath", "/Users/tito/research/data/dwh/labeled/epinions", "--output_dirpath", "${cwd}/data/epinions", "--items", "agg_al"],
         "envFile": "${workspaceFolder}/.env",
         "cwd": "${workspaceFolder}",
         }

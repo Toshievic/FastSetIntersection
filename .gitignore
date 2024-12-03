@@ -1,7 +1,9 @@
 *.o
+*.out
 analysis
 data
 data_store
+obj
 result
 result_2
 output
