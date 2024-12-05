@@ -48,6 +48,7 @@ public:
     void read_vertices(std::string &vertex_filepath);
     void read_edges(std::string &edge_filepath);
     void construct_agg_al(bool filtered, unsigned long long size_limit);
+    void dump_scan(std::string &output_dirpath);
     void dump_al(std::string &output_dirpath);
     void dump_agg_al(std::string &output_dirpath);
 };
@@ -78,6 +79,9 @@ Serializer::Serializer(std::string &input_dirpath, std::string &output_dirpath, 
         construct_agg_al(filtered, size_limit);
         // 書き込み
         dump_agg_al(output_dirpath);
+    }
+    else {
+        dump_scan(output_dirpath);
     }
     dump_al(output_dirpath);
 }
@@ -324,6 +328,36 @@ void Serializer::dump_agg_al(std::string &output_dirpath) {
 
     double runtime = get_runtime(&start, &end);
     std::cout << "[Lap] Dump agg_al: " << std::to_string(runtime) << " [ms]" << std::endl;
+}
+
+
+void Serializer::dump_scan(std::string &output_dirpath) {
+    std::ofstream fout1, fout2, fout3;
+    // v_crsの要素数を決定
+    unsigned scan_v_crs_len = 2 * graph_info["num_e_labels"] * graph_info["num_v_labels"] * graph_info["num_v_labels"];
+    
+    fout1.open(output_dirpath + "/scan_v_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout2.open(output_dirpath + "/scan_src_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout3.open(output_dirpath + "/scan_dst_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+
+    unsigned current_ptr = 0;
+    for (int i=0; i<scan_v_crs_len; ++i) {
+        fout1.write((const char*) &current_ptr, sizeof(unsigned));
+        // 各パーティション内をソート
+        sort(scanned_edges[i].begin(), scanned_edges[i].end());
+        current_ptr += scanned_edges[i].size();
+        for (int j=0; j<scanned_edges[i].size(); ++j) {
+            fout2.write((const char *) &scanned_edges[i][j].first, sizeof(unsigned));
+            fout3.write((const char *) &scanned_edges[i][j].second, sizeof(unsigned));
+        }
+    }
+
+    fout1.write((const char *) &current_ptr, sizeof(unsigned));
+    std::cout << "size of scan_v_crs: " << scan_v_crs_len+1 << std::endl;
+    std::cout << "size of scan_e_crs: " << current_ptr << std::endl;
+    fout1.close();
+    fout2.close();
+    fout3.close();
 }
 
 
