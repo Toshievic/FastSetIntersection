@@ -258,10 +258,10 @@ void Serializer::dump_agg_al(std::string &output_dirpath) {
     Chrono_t start = get_time();
 
     std::ofstream fout1, fout2, fout3, fout4;
-    fout1.open(output_dirpath + "/agg_2hop_v_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout2.open(output_dirpath + "/agg_2hop_e_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout3.open(output_dirpath + "/agg_al_v_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout4.open(output_dirpath + "/agg_al_e_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout1.open(output_dirpath + "/agg_2hop_key.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout2.open(output_dirpath + "/agg_2hop_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout3.open(output_dirpath + "/agg_al_key.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout4.open(output_dirpath + "/agg_al_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
 
     unsigned current_ptr0 = 0;
     unsigned current_ptr1 = 0;
@@ -322,33 +322,39 @@ void Serializer::dump_scan(std::string &output_dirpath) {
 void Serializer::dump_al(std::string &output_dirpath) {
     Chrono_t start = get_time();
 
-    std::ofstream fout1, fout2, fout3;
-    fout1.open(output_dirpath + "/al_v_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout2.open(output_dirpath + "/al_e_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout3.open(output_dirpath + "/al_hub_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    std::ofstream fout1, fout2, fout3, fout4;
+    fout1.open(output_dirpath + "/al_key.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout2.open(output_dirpath + "/al_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout3.open(output_dirpath + "/al_hub_key.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout4.open(output_dirpath + "/al_hub_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
 
-    unsigned current_ptr = 0;
+    unsigned current_ptr0 = 0;
+    unsigned current_ptr1 = 0;
     unsigned al_v_crs_len = 2 * graph_info["num_e_labels"] * graph_info["num_v_labels"] * graph_info["num_v"];
     int max_degree = 0;
     for (int i=0; i<al_v_crs_len; ++i) {
-        fout1.write((const char *) &current_ptr, sizeof(unsigned));
+        fout1.write((const char *) &current_ptr0, sizeof(unsigned));
+        fout3.write((const char *) &current_ptr1, sizeof(unsigned));
         // 各パーティション内をソート
         sort(adjlist[i].begin(), adjlist[i].end());
-        current_ptr += adjlist[i].size();
+        current_ptr0 += adjlist[i].size();
+        current_ptr1 += hublist[i].size();
         max_degree = std::max(max_degree, (int)adjlist[i].size());
         for (int j=0; j<adjlist[i].size(); ++j) {
             fout2.write((const char *) &adjlist[i][j], sizeof(unsigned));
         }
         for (int j=0; j<hublist[i].size(); ++j) {
-            fout3.write((const char *) &hublist[i][j], sizeof(unsigned));
+            fout4.write((const char *) &hublist[i][j], sizeof(unsigned));
         }
     }
-    fout1.write((const char *) &current_ptr, sizeof(unsigned));
+    fout1.write((const char *) &current_ptr0, sizeof(unsigned));
+    fout3.write((const char *) &current_ptr1, sizeof(unsigned));
     graph_info["max_degree"] = max_degree;
 
     fout1.close();
     fout2.close();
     fout3.close();
+    fout4.close();
 
     fout1.open(output_dirpath + "/data_info.txt", std::ios::out|std::ios::trunc);
     for (auto &item : graph_info) {
