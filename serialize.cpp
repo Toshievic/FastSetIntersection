@@ -180,7 +180,7 @@ void Serializer::construct_agg_al(bool filtered, unsigned long long size_limit) 
 
     // サイズを見積りながら構築
     int idx = 0;
-    while (num_agg_al_keys + (2*num_2hops) + num_2paths + num_v_labels + num_v + num_hub_crs + num_al_keys + num_1paths <= size_limit) {
+    while (num_agg_al_keys + (2*num_2hops) + num_2paths + num_v_labels + num_v + num_hub_crs + (num_al_keys*2) + num_1paths <= size_limit) {
         // 残っている中で最も次数が小さい頂点を取り出す
         auto [v, deg] = degree[idx];
         // vの隣接リストを参照してvを経由する全ての2-pathをindexに追加
