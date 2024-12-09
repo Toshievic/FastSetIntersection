@@ -37,9 +37,8 @@ public:
     std::map<std::string, int> graph_info; // 頂点ラベルの種類数等を格納
     std::vector<std::vector<unsigned>> for_scan; // 頂点idを頂点ラベルごとに分割
     std::vector<std::vector<unsigned>> adjlist; // キー: num_v * (num_vl * (dir * num_el + el) + dl) + si
+    std::vector<std::vector<unsigned>> hublist;
     std::vector<std::pair<unsigned, unsigned>> degree;
-    std::unordered_set<unsigned> hubs;
-    std::vector<std::map<unsigned, std::vector<unsigned>>> scans;
     std::map<unsigned, std::vector<unsigned>> *agg_al;
 
     Serializer() {}
@@ -80,9 +79,7 @@ Serializer::Serializer(std::string &input_dirpath, std::string &output_dirpath, 
         // 書き込み
         dump_agg_al(output_dirpath);
     }
-    else {
-        dump_scan(output_dirpath);
-    }
+    dump_scan(output_dirpath);
     dump_al(output_dirpath);
 }
 
@@ -94,11 +91,11 @@ void Serializer::read_vertices(std::string &vertex_filepath) {
     std::vector<std::vector<unsigned>> table = read_csv(ifs_v_file, ',');
 
     std::unordered_set<int> v_labels;
-    graph_info["num_v"] = vertices.size();
     for (int i=0; i<table.size(); ++i) {
         vertices[table[i][0]] = table[i][1];
         v_labels.insert(table[i][1]);
     }
+    graph_info["num_v"] = vertices.size();
     graph_info["num_v_labels"] = v_labels.size();
     for_scan.resize(graph_info["num_v_labels"]);
     for (int i=0; i<table.size(); ++i) {
@@ -128,6 +125,7 @@ void Serializer::read_edges(std::string &edge_filepath) {
     // adjlist
     size_t adjlist_size = 2 * graph_info["num_e_labels"] * graph_info["num_v_labels"] * graph_info["num_v"];
     adjlist.resize(adjlist_size);
+    hublist.resize(adjlist_size);
 
     for (int i=0; i<table.size(); ++i) {
         unsigned src_id = table[i][0];
@@ -158,25 +156,16 @@ void Serializer::construct_agg_al(bool filtered, unsigned long long size_limit) 
     int num_v = graph_info["num_v"];
     int num_v_labels = graph_info["num_v_labels"];
     int num_e_labels = graph_info["num_e_labels"];
-    unsigned long long num_scans_keys = 2*num_v_labels*num_v_labels*num_e_labels;
     unsigned long long num_agg_al_keys = 4*num_v*num_v_labels*num_v_labels*num_e_labels*num_e_labels;
-    scans.resize(num_scans_keys);
     agg_al = new std::map<unsigned, std::vector<unsigned>>[num_agg_al_keys];
     graph_info["agg_al_size"] = num_agg_al_keys;
-    graph_info["scan_size"] = num_scans_keys;
 
     // グラフ上の全頂点を次数順でソート, scansも作成
     degree.resize(num_v);
-    unsigned long long num_scan_srcs = 0;
     for (int v=0; v<num_v; ++v) {
         degree[v] = {v, 0};
         for (int i=0; i<2*num_v_labels*num_e_labels; ++i) {
             degree[v].second += adjlist[i*num_v+v].size();
-            if (adjlist[num_v*i+v].size() > 0) {
-                unsigned scan_idx = num_v_labels * i + vertices[v];
-                scans[scan_idx].insert(std::map<unsigned, std::vector<unsigned>>::value_type (v, {}));
-                ++num_scan_srcs;
-            }
         }
     }
     std::sort(degree.begin(), degree.end(), [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
@@ -185,13 +174,13 @@ void Serializer::construct_agg_al(bool filtered, unsigned long long size_limit) 
     // indexの各種構成要素のサイズを見積もる
     unsigned long long num_2hops = 0;
     unsigned long long num_2paths = 0;
-    unsigned long long num_scan_dsts = 2 * graph_info["num_e"];
+    unsigned long long num_hub_crs = 2 * graph_info["num_e"];
     unsigned long long num_al_keys = 2 * num_v * num_v_labels * num_e_labels;
     unsigned long long num_1paths = 2 * graph_info["num_e"];
 
     // サイズを見積りながら構築
     int idx = 0;
-    while (num_agg_al_keys + (2*num_2hops) + num_2paths + num_scans_keys + (2*num_scan_srcs) + num_scan_dsts + num_al_keys + num_1paths <= size_limit) {
+    while (num_agg_al_keys + (2*num_2hops) + num_2paths + num_v_labels + num_v + num_hub_crs + num_al_keys + num_1paths <= size_limit) {
         // 残っている中で最も次数が小さい頂点を取り出す
         auto [v, deg] = degree[idx];
         // vの隣接リストを参照してvを経由する全ての2-pathをindexに追加
@@ -217,40 +206,41 @@ void Serializer::construct_agg_al(bool filtered, unsigned long long size_limit) 
             }
         }
 
-        num_scan_dsts -= deg;
+        num_hub_crs -= deg;
         ++idx;
         if (idx >= num_v) { break; }
     }
 
     std::cout << "Size limit:\t" << std::to_string(size_limit) << std::endl;
-    std::cout << "Index size:\t" << std::to_string(num_agg_al_keys + (2*num_2hops) + num_2paths + num_scans_keys + (2*num_scan_srcs) + num_scan_dsts + num_al_keys + num_1paths) << std::endl;
+    std::cout << "Index size:\t" << std::to_string(num_agg_al_keys + (2*num_2hops) + num_2paths + num_v_labels + num_v + num_hub_crs + num_al_keys + num_1paths) << std::endl;
     std::cout << "Breakdown:" << std::endl;
     std::cout << "\tNumAggregateAdjlistkeys: " << std::to_string(num_agg_al_keys) << std::endl;
     std::cout << "\tNum2hops: " << std::to_string(num_2hops) << std::endl;
     std::cout << "\tNum2paths: " << std::to_string(num_2paths) << std::endl;
-    std::cout << "\tNumScansKeys: " << std::to_string(num_scans_keys) << std::endl;
-    std::cout << "\tNumScansSrcs: " << std::to_string(num_scan_srcs) << std::endl;
-    std::cout << "\tNumScansDsts: " << std::to_string(num_scan_dsts) << std::endl;
+    std::cout << "\tNumScansKeys: " << std::to_string(num_v_labels+1) << std::endl;
+    std::cout << "\tNumScansSrcs: " << std::to_string(num_v) << std::endl;
     std::cout << "\tNumAdjlistKeys: " << std::to_string(num_al_keys) << std::endl;
     std::cout << "\tNum1paths: " << std::to_string(num_1paths) << std::endl;
+    std::cout << "\tNumHubCrs: " << std::to_string(num_hub_crs) << std::endl;
     std::cout << "We eliminated " << std::to_string(num_v - idx) << " hubs." << std::endl;
 
     // indexに収まらなかった頂点をscansに挿入
-    for (int v=idx; v<num_v; ++v) {
-        for (int i=0; i<2*num_v_labels*num_e_labels; ++i) {
-            // dirの部分を逆方向にする計算
-            int i_inv = i<num_v_labels*num_e_labels ? i+num_v_labels*num_e_labels : i-num_v_labels*num_e_labels;
-            for (auto &u : adjlist[num_v*i + v]) {
-                scans[i_inv][u].push_back(v);
+    for (int i=idx; i<num_v; ++i) {
+        unsigned v = degree[i].first;
+        for (int dir=0; dir<2; ++dir) {
+            for (int el=0; el<num_e_labels; ++el) {
+                for (int dl=0; dl<num_v_labels; ++dl) {
+                    for (auto &u : adjlist[num_v*(num_v_labels*(num_e_labels*dir+el)+dl)+v]) {
+                        hublist[num_v*(num_v_labels*(num_e_labels*(!dir)+el)+vertices[v])+u].push_back(v);
+                    }
+                }
             }
         }
     }
 
-    // scans, agg_al の末端部分をソート
-    for (int i=0; i<num_scans_keys; ++i) {
-        for (auto &item : scans[i]) {
-            std::sort(item.second.begin(), item.second.end());
-        }
+    // hublist, agg_al の末端部分をソート
+    for (int i=0; i<hublist.size(); ++i) {
+        std::sort(hublist[i].begin(), hublist[i].end());
     }
     for (int i=0; i<num_agg_al_keys; ++i) {
         for (auto &item : agg_al[i]) {
@@ -295,31 +285,6 @@ void Serializer::dump_agg_al(std::string &output_dirpath) {
     fout3.close();
     fout4.close();
 
-    fout1.open(output_dirpath + "/scan_v_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout2.open(output_dirpath + "/scan_srcs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout3.open(output_dirpath + "/scan_src_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout4.open(output_dirpath + "/scan_dst_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-
-    unsigned current_ptr2 = 0;
-    unsigned current_ptr3 = 0;
-    for (int i=0; i<graph_info["scan_size"]; ++i) {
-        fout1.write((const char *) &current_ptr2, sizeof(unsigned));
-        current_ptr2 += scans[i].size();
-        for (auto &item : scans[i]) {
-            fout2.write((const char *) &item.first, sizeof(unsigned));
-            fout3.write((const char *) &current_ptr3, sizeof(unsigned));
-            current_ptr3 += item.second.size();
-            fout4.write((const char *)item.second.data(), item.second.size());
-        }
-    }
-    fout1.write((const char *) &current_ptr2, sizeof(unsigned));
-    fout3.write((const char *) &current_ptr3, sizeof(unsigned));
-
-    fout1.close();
-    fout2.close();
-    fout3.close();
-    fout4.close();
-
     Chrono_t end = get_time();
 
     double runtime = get_runtime(&start, &end);
@@ -357,9 +322,10 @@ void Serializer::dump_scan(std::string &output_dirpath) {
 void Serializer::dump_al(std::string &output_dirpath) {
     Chrono_t start = get_time();
 
-    std::ofstream fout1, fout2;
+    std::ofstream fout1, fout2, fout3;
     fout1.open(output_dirpath + "/al_v_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
     fout2.open(output_dirpath + "/al_e_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout3.open(output_dirpath + "/al_hub_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
 
     unsigned current_ptr = 0;
     unsigned al_v_crs_len = 2 * graph_info["num_e_labels"] * graph_info["num_v_labels"] * graph_info["num_v"];
@@ -373,12 +339,16 @@ void Serializer::dump_al(std::string &output_dirpath) {
         for (int j=0; j<adjlist[i].size(); ++j) {
             fout2.write((const char *) &adjlist[i][j], sizeof(unsigned));
         }
+        for (int j=0; j<hublist[i].size(); ++j) {
+            fout3.write((const char *) &hublist[i][j], sizeof(unsigned));
+        }
     }
     fout1.write((const char *) &current_ptr, sizeof(unsigned));
     graph_info["max_degree"] = max_degree;
 
     fout1.close();
     fout2.close();
+    fout3.close();
 
     fout1.open(output_dirpath + "/data_info.txt", std::ios::out|std::ios::trunc);
     for (auto &item : graph_info) {
