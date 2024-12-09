@@ -35,7 +35,7 @@ class Serializer {
 public:
     std::unordered_map<unsigned,unsigned> vertices; // 頂点idと頂点ラベルの対応
     std::map<std::string, int> graph_info; // 頂点ラベルの種類数等を格納
-    std::vector<std::vector<std::pair<unsigned,unsigned>>> scanned_edges; // キー: num_vl * (num_vl * (dir * num_el + el) + sl) + dl
+    std::vector<std::vector<unsigned>> for_scan; // 頂点idを頂点ラベルごとに分割
     std::vector<std::vector<unsigned>> adjlist; // キー: num_v * (num_vl * (dir * num_el + el) + dl) + si
     std::vector<std::pair<unsigned, unsigned>> degree;
     std::unordered_set<unsigned> hubs;
@@ -94,12 +94,16 @@ void Serializer::read_vertices(std::string &vertex_filepath) {
     std::vector<std::vector<unsigned>> table = read_csv(ifs_v_file, ',');
 
     std::unordered_set<int> v_labels;
+    graph_info["num_v"] = vertices.size();
     for (int i=0; i<table.size(); ++i) {
         vertices[table[i][0]] = table[i][1];
         v_labels.insert(table[i][1]);
     }
-    graph_info["num_v"] = vertices.size();
     graph_info["num_v_labels"] = v_labels.size();
+    for_scan.resize(graph_info["num_v_labels"]);
+    for (int i=0; i<table.size(); ++i) {
+        for_scan[table[i][1]].push_back(table[i][0]);
+    }
 
     Chrono_t end = get_time();
     double runtime = get_runtime(&start, &end);
@@ -121,10 +125,8 @@ void Serializer::read_edges(std::string &edge_filepath) {
     graph_info["num_e"] = table.size();
     graph_info["num_e_labels"] = e_labels.size();
 
-    // scanned_edges, adjlist
-    size_t scanned_edges_size = 2 * graph_info["num_v_labels"] * graph_info["num_v_labels"] * graph_info["num_e_labels"];
+    // adjlist
     size_t adjlist_size = 2 * graph_info["num_e_labels"] * graph_info["num_v_labels"] * graph_info["num_v"];
-    scanned_edges.resize(scanned_edges_size);
     adjlist.resize(adjlist_size);
 
     for (int i=0; i<table.size(); ++i) {
@@ -134,17 +136,11 @@ void Serializer::read_edges(std::string &edge_filepath) {
         int src_label = vertices[src_id];
         int dst_label = vertices[dst_id];
 
-        unsigned fwd_scan_key = graph_info["num_v_labels"] * (
-            graph_info["num_v_labels"] * (0 * graph_info["num_e_labels"] + edge_label) + src_label) + dst_label;
-        unsigned bwd_scan_key = graph_info["num_v_labels"] * (
-            graph_info["num_v_labels"] * (1 * graph_info["num_e_labels"] + edge_label) + dst_label) + src_label;
         unsigned fwd_al_key = graph_info["num_v"] * (
             graph_info["num_v_labels"] * (0 * graph_info["num_e_labels"] + edge_label) + dst_label) + src_id;
         unsigned bwd_al_key = graph_info["num_v"] * (
             graph_info["num_v_labels"] * (1 * graph_info["num_e_labels"] + edge_label) + src_label) + dst_id;
 
-        scanned_edges[fwd_scan_key].push_back({src_id, dst_id});
-        scanned_edges[bwd_scan_key].push_back({dst_id, src_id});
         adjlist[fwd_al_key].push_back(dst_id);
         adjlist[bwd_al_key].push_back(src_id);
     }
@@ -332,23 +328,21 @@ void Serializer::dump_agg_al(std::string &output_dirpath) {
 
 
 void Serializer::dump_scan(std::string &output_dirpath) {
-    std::ofstream fout1, fout2, fout3;
+    std::ofstream fout1, fout2;
     // v_crsの要素数を決定
-    unsigned scan_v_crs_len = 2 * graph_info["num_e_labels"] * graph_info["num_v_labels"] * graph_info["num_v_labels"];
+    unsigned scan_v_crs_len = graph_info["num_v_labels"];
     
-    fout1.open(output_dirpath + "/scan_v_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout2.open(output_dirpath + "/scan_src_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
-    fout3.open(output_dirpath + "/scan_dst_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout1.open(output_dirpath + "/scan_key.bin", std::ios::out|std::ios::binary|std::ios::trunc);
+    fout2.open(output_dirpath + "/scan_crs.bin", std::ios::out|std::ios::binary|std::ios::trunc);
 
     unsigned current_ptr = 0;
     for (int i=0; i<scan_v_crs_len; ++i) {
         fout1.write((const char*) &current_ptr, sizeof(unsigned));
         // 各パーティション内をソート
-        sort(scanned_edges[i].begin(), scanned_edges[i].end());
-        current_ptr += scanned_edges[i].size();
-        for (int j=0; j<scanned_edges[i].size(); ++j) {
-            fout2.write((const char *) &scanned_edges[i][j].first, sizeof(unsigned));
-            fout3.write((const char *) &scanned_edges[i][j].second, sizeof(unsigned));
+        std::sort(for_scan[i].begin(), for_scan[i].end());
+        current_ptr += for_scan[i].size();
+        for (int j=0; j<for_scan[i].size(); ++j) {
+            fout2.write((const char *) &for_scan[i][j], sizeof(unsigned));
         }
     }
 
@@ -357,7 +351,6 @@ void Serializer::dump_scan(std::string &output_dirpath) {
     std::cout << "size of scan_e_crs: " << current_ptr << std::endl;
     fout1.close();
     fout2.close();
-    fout3.close();
 }
 
 
