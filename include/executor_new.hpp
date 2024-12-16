@@ -8,7 +8,7 @@
 #include <memory>
 
 
-class Executor {
+class SimpleExecutor {
 public:
     std::string executor_name;
     LabeledGraph *g;
@@ -23,13 +23,30 @@ public:
 };
 
 
-class GenericExecutor : public Executor {
+class Executor {
+public:
+    std::string executor_name;
+    LabeledGraph *g;
+    Query *q;
+    std::vector<int> order;
+    std::unordered_map<std::string, double> time_stats;
+    std::unordered_map<std::string, unsigned> exec_stats;
+    unsigned *assignment;
+    unsigned result_size;
+    unsigned intersection_count;
+
+    virtual void init() {}
+    virtual void run(std::unordered_map<std::string, std::string> &options) {}
+};
+
+
+class SimpleGenericExecutor : public SimpleExecutor {
 public:
     unsigned *intersects; // intersection結果の格納場所
     int x_base_idx, y_base_idx, scan_idx;
 
-    GenericExecutor() {}
-    GenericExecutor(std::string &data_dirpath, std::string &query_filepath) {
+    SimpleGenericExecutor() {}
+    SimpleGenericExecutor(std::string &data_dirpath, std::string &query_filepath) {
         executor_name = "generic";
         std::cout << "=== Generic Executor ===" << std::endl;
         g = new LabeledGraph(data_dirpath);
@@ -51,7 +68,33 @@ public:
 };
 
 
-class AggExecutor : public GenericExecutor {
+class GenericExecutor : public Executor {
+public:
+    int scan_vl;
+    std::vector<std::vector<std::tuple<unsigned, int>>> plan;
+    std::vector<std::vector<unsigned *>> result_store;
+    std::vector<std::vector<int>> match_nums;
+
+    GenericExecutor() {}
+    GenericExecutor(std::string &data_dirpath, std::string &query_filepath) {
+        executor_name = "generic";
+        std::cout << "=== Generic Executor ===" << std::endl;
+        g = new LabeledGraph(data_dirpath);
+        q = new Query(query_filepath);
+        order = get_plan(q, g, executor_name);
+    }
+
+    void init();
+    void run(std::unordered_map<std::string, std::string> &options);
+    void join();
+
+    void recursive_join(int depth);
+    int intersect(unsigned x, unsigned y); // intersectionの要素数を返す
+    void summarize_result();
+};
+
+
+class AggExecutor : public SimpleGenericExecutor {
 public:
     int base_idx;
 
@@ -77,9 +120,9 @@ public:
         if (method == "generic") {
             return std::make_unique<GenericExecutor>(data_dirpath, query_filepath);
         }
-        else if (method == "agg") {
-            return std::make_unique<AggExecutor>(data_dirpath, query_filepath);
-        }
+        // else if (method == "agg") {
+        //     return std::make_unique<AggExecutor>(data_dirpath, query_filepath);
+        // }
         else {
             std::cerr << "Error: Unknown method '" << method << "'\n";
             exit(1); 

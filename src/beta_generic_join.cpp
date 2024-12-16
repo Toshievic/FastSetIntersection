@@ -177,10 +177,10 @@ void BetaGenericJoin::find_assignables(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
-        unsigned *base = lg->al_e_crs + lg->al_v_crs[base_idx];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[base_idx+1];
-        unsigned *second = lg->al_e_crs + lg->al_v_crs[base_idx+2];
-        unsigned *third = lg->al_e_crs + lg->al_v_crs[base_idx+3];
+        unsigned *base = lg->al_crs + lg->al_keys[base_idx];
+        unsigned *first = lg->al_crs + lg->al_keys[base_idx+1];
+        unsigned *second = lg->al_crs + lg->al_keys[base_idx+2];
+        unsigned *third = lg->al_crs + lg->al_keys[base_idx+3];
 
         match_nums[vir_depth][0][0] = first - base;
         match_nums[vir_depth][0][1] = second - first;
@@ -225,8 +225,8 @@ void BetaGenericJoin::find_assignables(int current_depth) {
                 result_store[vir_depth][i-1][j+lev1],
                 result_store[vir_depth][i-1][j+lev1]+match_nums[vir_depth][i-1][j+lev1]};
             pair<unsigned*, unsigned*> it2 = {
-                lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2],
-                lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2+1]};
+                lg->al_crs+lg->al_keys[base_idx+j+lev2],
+                lg->al_crs+lg->al_keys[base_idx+j+lev2+1]};
 
             int match_num = 0;
             Chrono_t start = get_time();
@@ -273,10 +273,10 @@ void BetaGenericJoin::find_assignables_v2(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
-        unsigned *base = lg->al_e_crs + lg->al_v_crs[base_idx];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[base_idx+1];
-        unsigned *second = lg->al_e_crs + lg->al_v_crs[base_idx+2];
-        unsigned *third = lg->al_e_crs + lg->al_v_crs[base_idx+3];
+        unsigned *base = lg->al_crs + lg->al_keys[base_idx];
+        unsigned *first = lg->al_crs + lg->al_keys[base_idx+1];
+        unsigned *second = lg->al_crs + lg->al_keys[base_idx+2];
+        unsigned *third = lg->al_crs + lg->al_keys[base_idx+3];
 
         match_nums[vir_depth][0][0] = first - base;
         match_nums[vir_depth][0][1] = second - first;
@@ -318,8 +318,8 @@ void BetaGenericJoin::find_assignables_v2(int current_depth) {
         for (int j=0; j<group_num; ++j) {
             int it1_len = match_nums[vir_depth][i-1][j+lev1];
             if (it1_len > 0) {
-                unsigned *it2_first = lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2];
-                unsigned *it2_second = lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2+1];
+                unsigned *it2_first = lg->al_crs+lg->al_keys[base_idx+j+lev2];
+                unsigned *it2_second = lg->al_crs+lg->al_keys[base_idx+j+lev2+1];
                 if (it2_first != it2_second) {
                     unsigned *it1_first = result_store[vir_depth][i-1][j+lev1];
                     unsigned *it1_second = result_store[vir_depth][i-1][j+lev1] + it1_len;
@@ -363,10 +363,10 @@ void BetaGenericJoin::find_assignables_with_2hop(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
-        unsigned *base = lg->al_e_crs + lg->al_v_crs[base_idx];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[base_idx+1];
-        unsigned *second = lg->al_e_crs + lg->al_v_crs[base_idx+2];
-        unsigned *third = lg->al_e_crs + lg->al_v_crs[base_idx+3];
+        unsigned *base = lg->al_crs + lg->al_keys[base_idx];
+        unsigned *first = lg->al_crs + lg->al_keys[base_idx+1];
+        unsigned *second = lg->al_crs + lg->al_keys[base_idx+2];
+        unsigned *third = lg->al_crs + lg->al_keys[base_idx+3];
 
         match_nums[vir_depth][0][0] = first - base;
         match_nums[vir_depth][0][1] = second - first;
@@ -425,8 +425,8 @@ void BetaGenericJoin::find_assignables_with_2hop(int current_depth) {
                 result_store[vir_depth][i-1][j+lev1],
                 result_store[vir_depth][i-1][j+lev1]+match_nums[vir_depth][i-1][j+lev1]};
             pair<unsigned*, unsigned*> it2 = {
-                lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2],
-                lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2+1]};
+                lg->al_crs+lg->al_keys[base_idx+j+lev2],
+                lg->al_crs+lg->al_keys[base_idx+j+lev2+1]};
 
             int match_num = 0;
             ++intersection_count;

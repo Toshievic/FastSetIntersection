@@ -62,8 +62,8 @@ void LabeledGraph::load() {
 
     unsigned sv_size = static_cast<size_t>(fin_sv.tellg()) / sizeof(unsigned);
     unsigned se_size = static_cast<size_t>(fin_ss.tellg()) / sizeof(unsigned);
-    scan_v_crs = new unsigned[sv_size];
-    scan_src_crs = new unsigned[se_size];
+    scan_keys = new unsigned[sv_size];
+    scan_crs = new unsigned[se_size];
     scan_dst_crs = new unsigned[se_size];
 
     // ストリーム位置を最初に戻す
@@ -78,7 +78,7 @@ void LabeledGraph::load() {
             num_block = sv_size - current_ptr;
             at_end = true;
         }
-        fin_sv.read(reinterpret_cast<char*>(scan_v_crs+current_ptr), num_block*sizeof(unsigned));
+        fin_sv.read(reinterpret_cast<char*>(scan_keys+current_ptr), num_block*sizeof(unsigned));
         current_ptr += BUFFER_SIZE;
     }
 
@@ -90,7 +90,7 @@ void LabeledGraph::load() {
             num_block = se_size - current_ptr;
             at_end = true;
         }
-        fin_ss.read(reinterpret_cast<char*>(scan_src_crs+current_ptr), num_block*sizeof(unsigned));
+        fin_ss.read(reinterpret_cast<char*>(scan_crs+current_ptr), num_block*sizeof(unsigned));
         fin_sd.read(reinterpret_cast<char*>(scan_dst_crs+current_ptr), num_block*sizeof(unsigned));
         current_ptr += BUFFER_SIZE;
     }
@@ -119,8 +119,8 @@ void LabeledGraph::load() {
     unsigned av_size = static_cast<size_t>(fin_av.tellg()) / sizeof(unsigned);
     unsigned ae_size = static_cast<size_t>(fin_ae.tellg()) / sizeof(unsigned);
     unsigned long long th_size = static_cast<size_t>(fin_2h.tellg()) / sizeof(unsigned long long);
-    al_v_crs = new unsigned[av_size];
-    al_e_crs = new unsigned[ae_size];
+    al_keys = new unsigned[av_size];
+    al_crs = new unsigned[ae_size];
     twohop_bs.resize(th_size);
 
     fin_av.seekg(0);
@@ -135,7 +135,7 @@ void LabeledGraph::load() {
             num_block = av_size - current_ptr;
             at_end = true;
         }
-        fin_av.read(reinterpret_cast<char*>(al_v_crs+current_ptr), num_block*sizeof(unsigned));
+        fin_av.read(reinterpret_cast<char*>(al_keys+current_ptr), num_block*sizeof(unsigned));
         current_ptr += num_block;
     }
     unsigned al_v_crs_size = current_ptr;
@@ -148,7 +148,7 @@ void LabeledGraph::load() {
             num_block = ae_size - current_ptr;
             at_end = true;
         }
-        fin_ae.read(reinterpret_cast<char*>(al_e_crs+current_ptr), num_block*sizeof(unsigned));
+        fin_ae.read(reinterpret_cast<char*>(al_crs+current_ptr), num_block*sizeof(unsigned));
         current_ptr += BUFFER_SIZE;
     }
 
@@ -175,13 +175,13 @@ void LabeledGraph::load() {
     max_degree = 0;
 
     for (int i=1; i<al_v_crs_size; ++i) {
-        unsigned first = al_v_crs[i-1];
-        unsigned last = al_v_crs[i];
+        unsigned first = al_keys[i-1];
+        unsigned last = al_keys[i];
         if (max_degree < last-first) { max_degree = last-first; }
         adj_bs[i-1].reset();
         for (int j=first; j<last; ++j) {
             // k=隣接頂点 mod BITSET_SIZEとして, k番目のbitを1にする
-            unsigned h = al_e_crs[j] & (BITSET_SIZE-1);
+            unsigned h = al_crs[j] & (BITSET_SIZE-1);
                 adj_bs[i-1].set(h);
         }
     }
@@ -213,10 +213,10 @@ void LabeledGraph::load() {
         // 距離差別に集計
         unsigned counters[3];
         for (int i=0; i<av_size-1; i+=3) {
-            unsigned base = al_v_crs[i];
-            unsigned first = al_v_crs[i+1];
-            unsigned second = al_v_crs[i+2];
-            unsigned third = al_v_crs[i+3];
+            unsigned base = al_keys[i];
+            unsigned first = al_keys[i+1];
+            unsigned second = al_keys[i+2];
+            unsigned third = al_keys[i+3];
             if (base == third) { continue; }
             if (base == first) { ++counters[0]; }
             if (first == second) { ++counters[1]; }

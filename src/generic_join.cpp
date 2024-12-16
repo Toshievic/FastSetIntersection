@@ -142,13 +142,13 @@ void GenericJoin::get_single_assignment() {
 void GenericJoin::multiway_join() {
     // 0,1番目の頂点をscanによって得る
     unsigned idx = lg->num_vl * (lg->num_vl * (scanned_dir * lg->num_el + scanned_el) + scanned_sl) + scanned_dl;
-    unsigned first = lg->scan_v_crs[idx];
-    unsigned last = lg->scan_v_crs[idx+1];
+    unsigned first = lg->scan_keys[idx];
+    unsigned last = lg->scan_keys[idx+1];
     if (first == last) { return; }
-    unsigned src_prev = lg->scan_src_crs[0];
+    unsigned src_prev = lg->scan_crs[0];
 
     for (int i=first; i<last; i++) {
-        keys[0] = lg->scan_src_crs[i];
+        keys[0] = lg->scan_crs[i];
         keys[1] = lg->scan_dst_crs[i];
 
         if (src_prev != keys[0]) {
@@ -223,8 +223,8 @@ void GenericJoin::find_assignables(int current_depth) {
     if (arr_num == 1) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         intersection_result[vir_depth].assign(first,last);
         match_nums[vir_depth] = last - first;
         if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
@@ -235,8 +235,8 @@ void GenericJoin::find_assignables(int current_depth) {
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         if (first == last) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;
@@ -300,8 +300,8 @@ void GenericJoin::find_assignables_v2(int current_depth) {
     if (arr_num == 1) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         intersection_result[vir_depth].assign(first,last);
         match_nums[vir_depth] = last - first;
         return;
@@ -310,8 +310,8 @@ void GenericJoin::find_assignables_v2(int current_depth) {
     for (int i=0; i<arr_num; ++i) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         if (first == last) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;
@@ -382,8 +382,8 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
     if (arr_num == 1) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         intersection_result[vir_depth].assign(first,last);
         match_nums[vir_depth] = last - first;
         return;
@@ -407,8 +407,8 @@ void GenericJoin::find_assignables_with_bitset(int current_depth) {
         }
         bit_num_stat[max_onebits] += 1;
 
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
 
         if (first == last) {
             if (cache_available.contains(current_depth)) {
@@ -478,8 +478,8 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
     if (arr_num == 1) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         intersection_result[vir_depth].assign(first,last);
         match_nums[vir_depth] = last - first;
         if (cache_available.contains(current_depth)) { cache_available[current_depth] = true; }
@@ -505,8 +505,8 @@ void GenericJoin::find_assignables_with_2hop(int current_depth) {
         }
         Chrono_t end = get_time();
         lev_runtime[current_depth] += get_msec_runtime(&start, &end);
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         if (first == last) {
             if (cache_available.contains(current_depth)) {
                 cache_available[current_depth] = true;

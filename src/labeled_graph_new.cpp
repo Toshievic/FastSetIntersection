@@ -55,16 +55,18 @@ LabeledGraph::LabeledGraph(std::string &data_dirpath) {
     }
 
     // scan_crs, 隣接リストの読み込み
-    std::string scan_v_filepath = data_dirpath + "/scan_v_crs.bin";
-    std::string scan_src_filepath = data_dirpath + "/scan_src_crs.bin";
-    std::string scan_dst_filepath = data_dirpath + "/scan_dst_crs.bin";
-    std::string al_v_filepath = data_dirpath + "/al_v_crs.bin";
-    std::string al_e_filepath = data_dirpath + "/al_e_crs.bin";
-    binary_read(scan_v_filepath, scan_v_crs, 1024);
-    binary_read(scan_src_filepath, scan_src_crs, 1024);
-    binary_read(scan_dst_filepath, scan_dst_crs, 1024);
-    binary_read(al_v_filepath, al_v_crs, 1024);
-    binary_read(al_e_filepath, al_e_crs, 1024);
+    std::string scan_key_filepath = data_dirpath + "/scan_key.bin";
+    std::string scan_crs_filepath = data_dirpath + "/scan_crs.bin";
+    std::string al_key_filepath = data_dirpath + "/al_key.bin";
+    std::string al_crs_filepath = data_dirpath + "/al_crs.bin";
+    std::string al_hub_key_filepath = data_dirpath + "/al_hub_key.bin";
+    std::string al_hub_crs_filepath = data_dirpath + "/al_hub_crs.bin";
+    binary_read(scan_key_filepath, scan_keys, 1024);
+    binary_read(scan_crs_filepath, scan_crs, 1024);
+    binary_read(al_key_filepath, al_keys, 1024);
+    binary_read(al_crs_filepath, al_crs, 1024);
+    binary_read(al_hub_key_filepath, al_hub_keys, 1024);
+    binary_read(al_hub_crs_filepath, al_hub_crs, 1024);
 }
 
 
@@ -89,25 +91,25 @@ LabeledAggGraph::LabeledAggGraph(std::string &data_dirpath) {
         graph_info[key_value[0]] = stoi(key_value[1]);
     }
     
-    std::string scan_v_filepath = data_dirpath + "/scan_v_crs.bin";
-    std::string scan_srcs_filepath = data_dirpath + "/scan_srcs.bin";
-    std::string scan_src_filepath = data_dirpath + "/scan_src_crs.bin";
-    std::string scan_dst_filepath = data_dirpath + "/scan_dst_crs.bin";
-    std::string agg2hop_v_filepath = data_dirpath + "/agg_2hop_v_crs.bin";
-    std::string agg2hop_e_filepath = data_dirpath + "/agg_2hop_e_crs.bin";
-    std::string aggal_v_filepath = data_dirpath + "/agg_al_v_crs.bin";
-    std::string aggal_e_filepath = data_dirpath + "/agg_al_e_crs.bin";
-    std::string al_v_filepath = data_dirpath + "/al_v_crs.bin";
-    std::string al_e_filepath = data_dirpath + "/al_e_crs.bin";
+    std::string scan_key_filepath = data_dirpath + "/scan_key.bin";
+    std::string scan_crs_filepath = data_dirpath + "/scan_crs.bin";
+    std::string agg2hop_key_filepath = data_dirpath + "/agg_2hop_key.bin";
+    std::string agg2hop_crs_filepath = data_dirpath + "/agg_2hop_crs.bin";
+    std::string agg_al_key_filepath = data_dirpath + "/agg_al_key.bin";
+    std::string agg_al_crs_filepath = data_dirpath + "/agg_al_crs.bin";
+    std::string al_key_filepath = data_dirpath + "/al_key.bin";
+    std::string al_crs_filepath = data_dirpath + "/al_crs.bin";
+    std::string al_hub_key_filepath = data_dirpath + "/al_hub_key.bin";
+    std::string al_hub_crs_filepath = data_dirpath + "/al_hub_crs.bin";
 
-    binary_read(scan_v_filepath, scan_v_crs, 1024);
-    binary_read(scan_srcs_filepath, scan_srcs, 1024);
-    binary_read(scan_src_filepath, scan_src_crs, 1024);
-    binary_read(scan_dst_filepath, scan_dst_crs, 1024);
-    binary_read(agg2hop_v_filepath, agg_2hop_v_crs, 1024);
-    binary_read(agg2hop_e_filepath, agg_2hop_e_crs, 1024);
-    binary_read(aggal_v_filepath, agg_al_v_crs, 1024);
-    binary_read(aggal_e_filepath, agg_al_e_crs, 1024);
-    binary_read(al_v_filepath, al_v_crs, 1024);
-    binary_read(al_e_filepath, al_e_crs, 1024);
+    binary_read(scan_key_filepath, scan_keys, 1024);
+    binary_read(scan_crs_filepath, scan_crs, 1024);
+    binary_read(agg2hop_key_filepath, agg_2hop_keys, 1024);
+    binary_read(agg2hop_crs_filepath, agg_2hop_crs, 1024);
+    binary_read(agg_al_key_filepath, agg_al_keys, 1024);
+    binary_read(agg_al_crs_filepath, agg_al_crs, 1024);
+    binary_read(al_key_filepath, al_keys, 1024);
+    binary_read(al_crs_filepath, al_crs, 1024);
+    binary_read(al_hub_key_filepath, al_hub_keys, 1024);
+    binary_read(al_hub_crs_filepath, al_hub_crs, 1024);
 }

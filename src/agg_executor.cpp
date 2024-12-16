@@ -31,8 +31,8 @@ void AggExecutor::run(std::unordered_map<std::string, std::string> &options) {
 
 
 void AggExecutor::join() {
-    unsigned first = g->scan_v_crs[scan_idx];
-    unsigned last = g->scan_v_crs[scan_idx+1];
+    unsigned first = g->scan_keys[scan_idx];
+    unsigned last = g->scan_keys[scan_idx+1];
 
     unsigned result_size = 0;
     unsigned intersection_count = 0;
@@ -48,15 +48,15 @@ void AggExecutor::join() {
 
 
 void AggExecutor::hybrid_join() {
-    unsigned first = g->scan_v_crs[scan_idx];
-    unsigned last = g->scan_v_crs[scan_idx+1];
+    unsigned first = g->scan_keys[scan_idx];
+    unsigned last = g->scan_keys[scan_idx+1];
 
     unsigned result_size = 0;
     unsigned intersection_count = 0;
 
     for (int i=first; i<last; ++i) {
-        unsigned dst_first = g->scan_src_crs[i];
-        unsigned dst_last = g->scan_src_crs[i+1];
+        unsigned dst_first = g->scan_crs[i];
+        unsigned dst_last = g->scan_crs[i+1];
         for (int j=dst_first; j<dst_last; ++j) {
             ++intersection_count;
             int num_results = intersect(g->scan_srcs[i], g->scan_dst_crs[j]);
@@ -76,18 +76,18 @@ void AggExecutor::hybrid_join() {
 
 unsigned AggExecutor::intersect_agg(unsigned x) {
     unsigned x_idx = x_base_idx + x;
-    unsigned y_first = g->agg_2hop_v_crs[base_idx+x];
-    unsigned y_last = g->agg_2hop_v_crs[base_idx+x+1];
-    unsigned *x_first = g->al_e_crs + g->al_v_crs[x_idx];
-    unsigned *x_last = g->al_e_crs + g->al_v_crs[x_idx+1];
+    unsigned y_first = g->agg_2hop_keys[base_idx+x];
+    unsigned y_last = g->agg_2hop_keys[base_idx+x+1];
+    unsigned *x_first = g->al_crs + g->al_keys[x_idx];
+    unsigned *x_last = g->al_crs + g->al_keys[x_idx+1];
     
     int match_num = 0;
 
     while (x_first != x_last && y_first != y_last) {
-        if (*x_first < g->agg_2hop_e_crs[y_first]) {
+        if (*x_first < g->agg_2hop_crs[y_first]) {
             ++x_first;
         }
-        else if (*x_first > g->agg_2hop_e_crs[y_first]) {
+        else if (*x_first > g->agg_2hop_crs[y_first]) {
             ++y_first;
         }
         else {
@@ -100,9 +100,9 @@ unsigned AggExecutor::intersect_agg(unsigned x) {
 
     unsigned num_results = 0;
     for (int i=0; i<match_num; ++i) {
-        unsigned *first = g->agg_al_e_crs + g->agg_al_v_crs[intersects[i]];
-        unsigned *last = g->agg_al_e_crs + g->agg_al_v_crs[intersects[i]+1];
-        unsigned z = g->agg_2hop_e_crs[intersects[i]];
+        unsigned *first = g->agg_al_crs + g->agg_al_keys[intersects[i]];
+        unsigned *last = g->agg_al_crs + g->agg_al_keys[intersects[i]+1];
+        unsigned z = g->agg_2hop_crs[intersects[i]];
 
         while (first != last) {
             assignment = {x, *first, z};

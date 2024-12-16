@@ -102,13 +102,13 @@ void AlphaGenericJoin::setup() {
 void AlphaGenericJoin::multiway_join() {
     // 0,1番目の頂点をscanによって得る
     unsigned idx = lg->num_vl * (lg->num_vl * (scanned_dir * lg->num_el + scanned_el) + scanned_sl) + scanned_dl;
-    unsigned first = lg->scan_v_crs[idx];
-    unsigned last = lg->scan_v_crs[idx+1];
+    unsigned first = lg->scan_keys[idx];
+    unsigned last = lg->scan_keys[idx+1];
     if (first == last) { return; }
-    unsigned src_prev = lg->scan_src_crs[0];
+    unsigned src_prev = lg->scan_crs[0];
 
     for (int i=first; i<last; i++) {
-        keys[0] = lg->scan_src_crs[i];
+        keys[0] = lg->scan_crs[i];
         keys[1] = lg->scan_dst_crs[i];
 
         if (src_prev != keys[0]) {
@@ -185,8 +185,8 @@ void AlphaGenericJoin::find_assignables(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         match_nums[vir_depth][0] = last - first;
         memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
         if (arr_num == 1) {
@@ -204,7 +204,7 @@ void AlphaGenericJoin::find_assignables(int current_depth) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
 
-        pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
+        pair<unsigned*, unsigned*> it2 = {lg->al_crs+lg->al_keys[idx], lg->al_crs+lg->al_keys[idx+1]};
 
         int match_num = 0;
         num_comparison = 0;
@@ -248,8 +248,8 @@ void AlphaGenericJoin::find_assignables_v2(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         match_nums[vir_depth][0] = last - first;
         memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
         if (arr_num == 1) {
@@ -266,7 +266,7 @@ void AlphaGenericJoin::find_assignables_v2(int current_depth) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
 
-        pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
+        pair<unsigned*, unsigned*> it2 = {lg->al_crs+lg->al_keys[idx], lg->al_crs+lg->al_keys[idx+1]};
 
         int match_num = 0;
         ++intersection_count;
@@ -299,8 +299,8 @@ void AlphaGenericJoin::find_assignables_with_bitset(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         match_nums[vir_depth][0] = last - first;
         memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
         if (arr_num == 1) {
@@ -330,9 +330,9 @@ void AlphaGenericJoin::find_assignables_with_bitset(int current_depth) {
     ++intersection_count;
     for (int i=level+1; i<arr_num; ++i) {
         pair<unsigned*, unsigned*> it1 = {result_store[vir_depth][i-1], result_store[vir_depth][i-1]+match_nums[vir_depth][i-1]};
-        unsigned first = lg->al_v_crs[idxes[i]];
-        unsigned last = lg->al_v_crs[idxes[i]+1];
-        pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+first, lg->al_e_crs+last};
+        unsigned first = lg->al_keys[idxes[i]];
+        unsigned last = lg->al_keys[idxes[i]+1];
+        pair<unsigned*, unsigned*> it2 = {lg->al_crs+first, lg->al_crs+last};
         int match_num = 0;
 
         while (it1.first != it1.second && it2.first != it2.second) {
@@ -373,8 +373,8 @@ void AlphaGenericJoin::find_assignables_with_2hop(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         match_nums[vir_depth][0] = last - first;
         memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
         if (arr_num == 1) {
@@ -403,7 +403,7 @@ void AlphaGenericJoin::find_assignables_with_2hop(int current_depth) {
             }
         }
 
-        pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
+        pair<unsigned*, unsigned*> it2 = {lg->al_crs+lg->al_keys[idx], lg->al_crs+lg->al_keys[idx+1]};
 
         int match_num = 0;
 
@@ -438,8 +438,8 @@ void AlphaGenericJoin::find_assignables_exp(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[idx];
-        unsigned *last = lg->al_e_crs + lg->al_v_crs[idx+1];
+        unsigned *first = lg->al_crs + lg->al_keys[idx];
+        unsigned *last = lg->al_crs + lg->al_keys[idx+1];
         match_nums[vir_depth][0] = last - first;
         memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
         if (arr_num == 1) {
@@ -469,7 +469,7 @@ void AlphaGenericJoin::find_assignables_exp(int current_depth) {
         auto [dir,el,src,dl] = descriptors[vir_depth][i];
         unsigned idx = lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src];
 
-        pair<unsigned*, unsigned*> it2 = {lg->al_e_crs+lg->al_v_crs[idx], lg->al_e_crs+lg->al_v_crs[idx+1]};
+        pair<unsigned*, unsigned*> it2 = {lg->al_crs+lg->al_keys[idx], lg->al_crs+lg->al_keys[idx+1]};
 
         int match_num = 0;
 

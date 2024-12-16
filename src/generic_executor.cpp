@@ -1,72 +1,57 @@
 #include "../include/executor_new.hpp"
 
+#include <cstring>
+
 
 void GenericExecutor::init() {
-    std::unordered_map<std::string, int> meta = collect_meta();
     // 各種変数の初期化
-    intersects = new unsigned[g->graph_info["max_degree"]];
-    x_base_idx = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
-        meta["dir0"] * g->graph_info["num_e_labels"] + meta["el0"]) + meta["dl0"]);
-    y_base_idx = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
-        meta["dir1"] * g->graph_info["num_e_labels"] + meta["el1"]) + meta["dl1"]);
-    scan_idx = g->graph_info["num_v_labels"] * (g->graph_info["num_v_labels"] * (
-        meta["scan_dir"] * g->graph_info["num_e_labels"] + meta["scan_el"]) + meta["scan_sl"]) + meta["scan_dl"];
-}
+    assignment = new unsigned[order.size()];
+    plan.resize(order.size()-1);
+    std::vector<std::vector<std::tuple<unsigned,int>>> tmp_plan(order.size()-1);
 
-
-std::unordered_map<std::string, int> GenericExecutor::collect_meta() {
+    // クエリと与えられたorderから各depthでどの隣接リストを参照し, intersectionを行うのか特定
+    scan_vl = q->vars[order[0]];
     std::unordered_map<int,int> order_inv;
     for (int i=0; i<order.size(); i++) { order_inv[order[i]] = i; }
-    // scanを行うエッジの方向・ラベル, intersectionを行う隣接リストの方向・ラベルの特定
-    std::unordered_map<std::string, int> meta;
-
     for (auto &triple : q->triples) {
-        int src = order_inv[triple[0]];
+        int src = triple[0];
         int el = triple[1];
-        int dst = order_inv[triple[2]];
+        int dst = triple[2];
         int sl = q->vars[triple[0]];
         int dl = q->vars[triple[2]];
         int is_bwd = false;
-        if (src > dst) {
+        if (order_inv[src] > order_inv[dst]) {
             int tmp = src;
             src = dst; dst = tmp;
             tmp = sl;
             sl = dl; dl = tmp;
             is_bwd = true;
         }
-        if (src == 0 && dst == 1) {
-            meta["scan_dir"] = is_bwd;
-            meta["scan_el"] = el;
-            meta["scan_sl"] = sl;
-            meta["scan_dl"] = dl;
-            continue;
-        }
-        std::string dir = "dir" + std::to_string(src);
-        std::string edge_label = "el" + std::to_string(src);
-        std::string dst_label = "dl" + std::to_string(src);
-        meta[dir] = is_bwd;
-        meta[edge_label] = el;
-        meta[dst_label] = dl;
+        unsigned key = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl);
+        tmp_plan[order_inv[dst]-1].push_back({key, src});
     }
 
-    return meta;
+    result_store.resize(order.size()-1);
+    match_nums.resize(order.size()-1);
+    for (int i=0; i<tmp_plan.size(); ++i) {
+        plan[i].resize(tmp_plan[i].size());
+        result_store[i].resize(plan[i].size());
+        match_nums[i].resize(plan[i].size());
+        for (int j=0; j<tmp_plan[i].size(); ++j) {
+            plan[i][j] = tmp_plan[i][j];
+            result_store[i][j] = new unsigned[g->graph_info["max_degree"]];
+            match_nums[i][j] = 0;
+        }
+    }
+
+    result_size = 0;
+    intersection_count = 0;
 }
 
 
 void GenericExecutor::run(std::unordered_map<std::string, std::string> &options) {
     Chrono_t start = get_time();
-    // options:
-    // scan=factorize であれば, 0番目の頂点の更新を抑制
-    // switch=lazy であれば, ポインタの更新を抑制
-    if (options.contains("scan") && options["scan"] == "factorize") {
-        factorize_join();
-    }
-    else if (options.contains("switch") && options["switch"] == "lazy") {
-        join_with_lazy_update();
-    }
-    else {
-        join();
-    }
+    join();
     Chrono_t end = get_time();
     time_stats["join_runtime"] = get_runtime(&start, &end);
     summarize_result();
@@ -74,162 +59,67 @@ void GenericExecutor::run(std::unordered_map<std::string, std::string> &options)
 
 
 void GenericExecutor::join() {
-    unsigned first = g->scan_v_crs[scan_idx];
-    unsigned last = g->scan_v_crs[scan_idx+1];
-
-    unsigned result_size = 0;
-    unsigned intersection_count = 0;
+    unsigned first = g->scan_keys[scan_vl];
+    unsigned last = g->scan_keys[scan_vl+1];
 
     for (int i=first; i<last; ++i) {
-        ++intersection_count;
-        int num_results = intersect(g->scan_src_crs[i], g->scan_dst_crs[i]);
-        for (int j=0; j<num_results; ++j) {
-            assignment = {g->scan_src_crs[i], g->scan_dst_crs[i], intersects[j]};
-            ++result_size;
-        }
+        assignment[order[0]] = i;
+        recursive_join(1);
     }
     exec_stats["intersection_count"] = intersection_count;
     exec_stats["result_size"] = result_size;
 }
 
 
-int GenericExecutor::intersect(unsigned x, unsigned y) {
-    unsigned x_idx = x_base_idx + x;
-    unsigned y_idx = y_base_idx + y;
-    unsigned *x_first = g->al_e_crs + g->al_v_crs[x_idx];
-    unsigned *x_last = g->al_e_crs + g->al_v_crs[x_idx+1];
-    unsigned *y_first = g->al_e_crs + g->al_v_crs[y_idx];
-    unsigned *y_last = g->al_e_crs + g->al_v_crs[y_idx+1];
+void GenericExecutor::recursive_join(int depth) {
+    int vir_depth = depth - 1;
+    int num_intersects = plan[vir_depth].size();
+    
+    auto [key,src] = plan[vir_depth][0];
+    unsigned idx = key + assignment[src];
+    unsigned *first = g->al_crs + g->al_keys[idx];
+    unsigned *last = g->al_crs + g->al_keys[idx+1];
+    match_nums[vir_depth][0] = last - first;
+    std::memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
 
-    int match_num = 0;
-
-    while (x_first != x_last && y_first != y_last) {
-        if (*x_first < *y_first) {
-            ++x_first;
-        }
-        else if (*x_first > *y_first) {
-            ++y_first;
-        }
-        else {
-            intersects[match_num] = *x_first;
-            ++match_num;
-            ++x_first;
-            ++y_first;
-        }
-    }
-
-    return match_num;
-}
-
-
-void GenericExecutor::factorize_join() {
-    // 0番目の頂点が更新されない限り, 読み込みを発生させない
-    unsigned first = g->scan_v_crs[scan_idx];
-    unsigned last = g->scan_v_crs[scan_idx+1];
-
-    unsigned last_src = g->scan_src_crs[0];
-    unsigned x_idx = x_base_idx + last_src;
-    unsigned *x_first = g->al_e_crs + g->al_v_crs[x_idx];
-    unsigned *x_last = g->al_e_crs + g->al_v_crs[x_idx+1];
-
-    unsigned result_size = 0;
-    unsigned intersection_count = 0;
-
-    for (int i=first; i<last; ++i) {
+    for (int i=1; i<plan[vir_depth].size(); ++i) {
         ++intersection_count;
-        if (g->scan_src_crs[i] != last_src) {
-            last_src = g->scan_src_crs[i];
-            unsigned x_idx = x_base_idx + last_src;
-            x_first = g->al_e_crs + g->al_v_crs[x_idx];
-            x_last = g->al_e_crs + g->al_v_crs[x_idx+1];
-        }
-        int num_results = intersect_for_factorize(x_first, x_last, g->scan_dst_crs[i]);
-        for (int j=0; j<num_results; ++j) {
-            ++result_size;
-        }
-    }
-    exec_stats["intersection_count"] = intersection_count;
-    exec_stats["result_size"] = result_size;
-}
+        unsigned *x_first = result_store[vir_depth][i-1];
+        unsigned *x_last = result_store[vir_depth][i-1] + match_nums[vir_depth][i-1];
+        auto [y_key,y_src] = plan[vir_depth][i];
+        unsigned y_idx = y_key + assignment[y_src];
+        unsigned *y_first = g->al_crs + g->al_keys[y_idx];
+        unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
 
-
-int GenericExecutor::intersect_for_factorize(unsigned *x_first, unsigned *x_last, unsigned y) {
-    unsigned y_idx = y_base_idx + y;
-    unsigned *y_first = g->al_e_crs + g->al_v_crs[y_idx];
-    unsigned *y_last = g->al_e_crs + g->al_v_crs[y_idx+1];
-
-    int match_num = 0;
-
-    while (x_first != x_last && y_first != y_last) {
-        if (*x_first < *y_first) {
-            ++x_first;
-        }
-        else if (*x_first > *y_first) {
-            ++y_first;
-        }
-        else {
-            intersects[match_num] = *x_first;
-            ++match_num;
-            ++x_first;
-            ++y_first;
-        }
-    }
-
-    return match_num;
-}
-
-
-void GenericExecutor::join_with_lazy_update() {
-    unsigned first = g->scan_v_crs[scan_idx];
-    unsigned last = g->scan_v_crs[scan_idx+1];
-
-    unsigned result_size = 0;
-    unsigned intersection_count = 0;
-
-    for (int i=first; i<last; ++i) {
-        ++intersection_count;
-        int num_results = intersect_lazy_update(g->scan_src_crs[i], g->scan_dst_crs[i]);
-        for (int j=0; j<num_results; ++j) {
-            ++result_size;
-        }
-    }
-    exec_stats["intersection_count"] = intersection_count;
-    exec_stats["result_size"] = result_size;
-}
-
-
-int GenericExecutor::intersect_lazy_update(unsigned x, unsigned y) {
-    unsigned x_idx = x_base_idx + x;
-    unsigned y_idx = y_base_idx + y;
-    unsigned *x_first = g->al_e_crs + g->al_v_crs[x_idx];
-    unsigned *x_last = g->al_e_crs + g->al_v_crs[x_idx+1];
-    unsigned *y_first = g->al_e_crs + g->al_v_crs[y_idx];
-    unsigned *y_last = g->al_e_crs + g->al_v_crs[y_idx+1];
-
-    int match_num = 0;
-
-    while (x_first != x_last && y_first != y_last) {
-        if (*x_first < *y_first) {
-            ++x_first;
-            while (x_first != x_last && *x_first < *y_first) {
+        int match_num = 0;
+        while (x_first != x_last && y_first != y_last) {
+            if (x_first < y_first) {
                 ++x_first;
             }
-        }
-        else if (*x_first > *y_first) {
-            ++y_first;
-            while (y_first != y_last && *x_first > *y_first) {
+            else if (x_first > y_first) {
+                ++y_first;
+            }
+            else {
+                result_store[vir_depth][i] = x_first;
+                ++match_num;
+                ++x_first;
                 ++y_first;
             }
         }
-        else {
-            intersects[match_num] = *x_first;
-            ++match_num;
-            ++x_first;
-            ++y_first;
-        }
+        match_nums[vir_depth][i] = match_num;
     }
 
-    return match_num;
+    unsigned *result = result_store[vir_depth][num_intersects-1];
+    int match_num = match_nums[vir_depth][num_intersects-1];
+    for (int i=0; i<match_num; ++i) {
+        assignment[order[depth]] = result[i];
+        if (depth == order.size()-1) {
+            ++result_size;
+        }
+        else {
+            recursive_join(depth+1);
+        }
+    }
 }
 
 

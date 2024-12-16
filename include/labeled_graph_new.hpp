@@ -7,21 +7,19 @@
 
 class LabeledGraph {
 public:
-    // fwd or bwd, (src_label)-[edge_label]-(dst_label)を満たすエッジを全scanする用
-    // 2 * edge_labels * src_labels * dst_labels
-    unsigned *scan_v_crs;
-    unsigned *scan_srcs;
-    unsigned *scan_src_crs;
-    unsigned *scan_dst_crs;
+    unsigned *scan_keys;
+    unsigned *scan_crs;
 
     // fwd or bwd, src, edge_label, dst_label
-    unsigned *al_v_crs;
-    unsigned *al_e_crs;
+    unsigned *al_keys;
+    unsigned *al_crs;
+    unsigned *al_hub_keys;
+    unsigned *al_hub_crs;
 
-    unsigned *agg_2hop_v_crs;
-    unsigned *agg_2hop_e_crs;
-    unsigned *agg_al_v_crs;
-    unsigned *agg_al_e_crs;
+    unsigned *agg_2hop_keys;
+    unsigned *agg_2hop_crs;
+    unsigned *agg_al_keys;
+    unsigned *agg_al_crs;
     
     std::unordered_map<std::string, int> graph_info;
 

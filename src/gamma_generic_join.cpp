@@ -175,10 +175,10 @@ void GammaGenericJoin::find_assignables(int current_depth) {
     if (level < 0) {
         auto [dir,el,src,dl] = descriptors[vir_depth][0];
         unsigned base_idx = 3 * (lg->num_v * (lg->num_vl * (dir * lg->num_el + el) + dl) + keys[src]);
-        unsigned *base = lg->al_e_crs + lg->al_v_crs[base_idx];
-        unsigned *first = lg->al_e_crs + lg->al_v_crs[base_idx+1];
-        unsigned *second = lg->al_e_crs + lg->al_v_crs[base_idx+2];
-        unsigned *third = lg->al_e_crs + lg->al_v_crs[base_idx+3];
+        unsigned *base = lg->al_crs + lg->al_keys[base_idx];
+        unsigned *first = lg->al_crs + lg->al_keys[base_idx+1];
+        unsigned *second = lg->al_crs + lg->al_keys[base_idx+2];
+        unsigned *third = lg->al_crs + lg->al_keys[base_idx+3];
 
         match_nums[vir_depth][0][0] = first - base;
         match_nums[vir_depth][0][1] = second - first;
@@ -221,8 +221,8 @@ void GammaGenericJoin::find_assignables(int current_depth) {
             int it1_len = match_nums[vir_depth][i-1][j+lev1];
             if (it1_len > 0) {
                 pair<unsigned*, unsigned*> it2 = {
-                    lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2],
-                    lg->al_e_crs+lg->al_v_crs[base_idx+j+lev2+1]};
+                    lg->al_crs+lg->al_keys[base_idx+j+lev2],
+                    lg->al_crs+lg->al_keys[base_idx+j+lev2+1]};
                 if (it2.first != it2.second) {
                     pair<unsigned*, unsigned*> it1 = {
                         result_store[vir_depth][i-1]+(j+lev1)*deg, result_store[vir_depth][i-1]+(j+lev1)*deg+it1_len};
