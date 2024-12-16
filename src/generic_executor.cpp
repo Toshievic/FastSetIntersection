@@ -49,14 +49,14 @@ void GenericExecutor::init() {
     for (int i=0; i<plan.size(); ++i) {
         for (int j=0; j<plan[i].size(); ++j) {
             int src = plan[i][j].second;
-            if (src < i+1) {
-                available_level[i+2] = -1;
+            if (order[src] < i+1) {
+                available_level[order[i+1]] = -1;
                 if (!cache_switch.contains(src)) {
                     cache_switch.insert(std::unordered_map<int,std::vector<std::pair<int,int>>>::value_type (src,{}));
                     cache_switch.reserve(plan.size());
                 }
-                cache_switch[src].push_back({i+2,j-1});
-                if (j == plan[i].size()-1) { has_full_cache.insert(i+2); }
+                cache_switch[src].push_back({i+1,j-1});
+                if (j == plan[i].size()-1) { has_full_cache.insert(order[i+1]); }
             }
         }
     }
@@ -191,7 +191,7 @@ void GenericExecutor::find_assignables(int depth) {
     int vir_depth = depth - 1;
     int num_intersects = plan[vir_depth].size();
 
-    int level = available_level.contains(depth) ? available_level[depth] : -2;
+    int level = available_level.contains(order[depth]) ? available_level[order[depth]] : -2;
     if (level == num_intersects-1) { return; }
     
     if (level < 0) {
@@ -231,8 +231,8 @@ void GenericExecutor::find_assignables(int depth) {
         if (match_num == 0) { break; }
     }
 
-    if (has_full_cache.contains(depth)) { available_level[depth]=num_intersects-1; }
-    else { available_level[depth] = num_intersects-2; }
+    if (has_full_cache.contains(order[depth])) { available_level[order[depth]] = num_intersects-1; }
+    else { available_level[order[depth]] = num_intersects-2; }
 }
 
 
