@@ -28,7 +28,7 @@ void GenericExecutor::init() {
             is_bwd = true;
         }
         unsigned key = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl);
-        tmp_plan[order_inv[dst]-1].push_back({key, src});
+        tmp_plan[order_inv[dst]-1].push_back({key, order_inv[src]});
     }
 
     result_store.resize(order.size()-1);
@@ -49,14 +49,14 @@ void GenericExecutor::init() {
     for (int i=0; i<plan.size(); ++i) {
         for (int j=0; j<plan[i].size(); ++j) {
             int src = plan[i][j].second;
-            if (order_inv[src] < i+1) {
-                available_level[order[i+1]] = -1;
+            if (src < i+1) {
+                available_level[i+1] = -1;
                 if (!cache_switch.contains(src)) {
                     cache_switch.insert(std::unordered_map<int,std::vector<std::pair<int,int>>>::value_type (src,{}));
                     cache_switch.reserve(plan.size());
                 }
-                cache_switch[src].push_back({order[i+1],j-1});
-                if (j == plan[i].size()-1) { has_full_cache.insert(order[i+1]); }
+                cache_switch[src].push_back({i+1,j-1});
+                if (j == plan[i].size()-1) { has_full_cache.insert(i+1); }
             }
         }
     }
@@ -85,7 +85,7 @@ void GenericExecutor::join() {
     unsigned last = g->scan_keys[scan_vl+1];
 
     for (int i=first; i<last; ++i) {
-        assignment[order[0]] = i;
+        assignment[0] = i;
         recursive_join(1);
     }
     exec_stats["intersection_count"] = intersection_count;
@@ -98,10 +98,10 @@ void GenericExecutor::cache_join() {
     unsigned last = g->scan_keys[scan_vl+1];
 
     for (int i=first; i<last; ++i) {
-        assignment[order[0]] = i;
-        if (cache_switch.contains(order[0])) {
-            for (int j=0; j<cache_switch[order[0]].size(); ++j) {
-                available_level[cache_switch[order[0]][j].first] = cache_switch[order[0]][j].second;
+        assignment[0] = i;
+        if (cache_switch.contains(0)) {
+            for (int j=0; j<cache_switch[0].size(); ++j) {
+                available_level[cache_switch[0][j].first] = cache_switch[0][j].second;
             }
         }
         recursive_cache_join(1);
@@ -151,7 +151,7 @@ void GenericExecutor::recursive_join(int depth) {
     unsigned *result = result_store[vir_depth][num_intersects-1];
     int match_num = match_nums[vir_depth][num_intersects-1];
     for (int i=0; i<match_num; ++i) {
-        assignment[order[depth]] = result[i];
+        assignment[depth] = result[i];
         if (depth == order.size()-1) {
             ++result_size;
         }
@@ -170,15 +170,15 @@ void GenericExecutor::recursive_cache_join(int depth) {
     unsigned *result = result_store[vir_depth][num_intersects-1];
     int match_num = match_nums[vir_depth][num_intersects-1];
     for (int i=0; i<match_num; ++i) {
-        assignment[order[depth]] = result[i];
+        assignment[depth] = result[i];
         if (depth == order.size()-1) {
             ++result_size;
         }
         else {
             recursive_cache_join(depth+1);
-            if (cache_switch.contains(order[depth])) {
-                for (int j=0; j<cache_switch[order[depth]].size(); ++j) {
-                    auto [v,level] = cache_switch[order[depth]][j];
+            if (cache_switch.contains(depth)) {
+                for (int j=0; j<cache_switch[depth].size(); ++j) {
+                    auto [v,level] = cache_switch[depth][j];
                     available_level[v] = std::min(available_level[v], level);
                 }
             }
@@ -191,7 +191,7 @@ void GenericExecutor::find_assignables(int depth) {
     int vir_depth = depth - 1;
     int num_intersects = plan[vir_depth].size();
 
-    int level = available_level.contains(order[depth]) ? available_level[order[depth]] : -2;
+    int level = available_level.contains(depth) ? available_level[depth] : -2;
     if (level == num_intersects-1) { return; }
     
     if (level < 0) {
@@ -231,8 +231,8 @@ void GenericExecutor::find_assignables(int depth) {
         if (match_num == 0) { break; }
     }
 
-    if (has_full_cache.contains(order[depth])) { available_level[order[depth]] = num_intersects-1; }
-    else { available_level[order[depth]] = num_intersects-2; }
+    if (has_full_cache.contains(depth)) { available_level[depth] = num_intersects-1; }
+    else { available_level[depth] = num_intersects-2; }
 }
 
 
