@@ -76,7 +76,7 @@ void GenericExecutor::run(std::unordered_map<std::string, std::string> &options)
     }
     Chrono_t end = get_time();
     time_stats["join_runtime"] = get_runtime(&start, &end);
-    summarize_result();
+    summarize_result(options);
 }
 
 
@@ -230,10 +230,14 @@ void GenericExecutor::find_assignables(int depth) {
 }
 
 
-void GenericExecutor::summarize_result() {
+void GenericExecutor::summarize_result(std::unordered_map<std::string, std::string> &options) {
     using namespace std;
     cout << "--- Basic Info ---" << endl;
     cout << "Method: " << executor_name << "\t\tQuery: " << q->query_name << endl;
+    cout << "Options:" << endl;
+    for (auto &item : options) {
+        cout << item.first << ":\t" << item.second << endl;
+    }
     cout << "--- Runtimes ---" << endl;
     for (auto &item : time_stats) {
         cout << item.first << ": " << to_string(item.second) << " [ms]" << endl;

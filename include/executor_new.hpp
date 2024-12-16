@@ -97,7 +97,7 @@ public:
     void recursive_join(int depth);
     void recursive_cache_join(int depth);
     void find_assignables(int depth);
-    void summarize_result();
+    void summarize_result(std::unordered_map<std::string, std::string> &options);
 };
 
 
