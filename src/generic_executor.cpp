@@ -49,7 +49,7 @@ void GenericExecutor::init() {
     for (int i=0; i<plan.size(); ++i) {
         for (int j=0; j<plan[i].size(); ++j) {
             int src = plan[i][j].second;
-            if (order[src] < i+1) {
+            if (order_inv[src] < i+1) {
                 available_level[order[i+1]] = -1;
                 if (!cache_switch.contains(src)) {
                     cache_switch.insert(std::unordered_map<int,std::vector<std::pair<int,int>>>::value_type (src,{}));
