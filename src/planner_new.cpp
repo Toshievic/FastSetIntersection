@@ -5,7 +5,6 @@ std::vector<int> get_plan(Query *q, LabeledGraph *g, std::string &executor_name)
     // 現状探索順序はGraphFlowが選択した順序をそのまま使っている
     std::unordered_map<std::string, std::vector<int>> graphflow_orders = {
         {"Q1_n", {0,1,2}},
-        {"Q1_n_slashdot", {2,0,1}},
         {"Q1", {2,0,1}},
         {"Q2_n", {0,2,1,3}},
         {"Q2", {2,3,1,0}},
