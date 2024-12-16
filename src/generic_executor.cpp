@@ -7,7 +7,7 @@ void GenericExecutor::init() {
     // 各種変数の初期化
     assignment = new unsigned[order.size()];
     plan.resize(order.size()-1);
-    std::vector<std::vector<std::tuple<unsigned,int>>> tmp_plan(order.size()-1);
+    std::vector<std::vector<std::pair<unsigned,int>>> tmp_plan(order.size()-1);
 
     // クエリと与えられたorderから各depthでどの隣接リストを参照し, intersectionを行うのか特定
     scan_vl = q->vars[order[0]];
@@ -33,6 +33,7 @@ void GenericExecutor::init() {
 
     result_store.resize(order.size()-1);
     match_nums.resize(order.size()-1);
+    
     for (int i=0; i<tmp_plan.size(); ++i) {
         plan[i].resize(tmp_plan[i].size());
         result_store[i].resize(plan[i].size());
@@ -44,6 +45,22 @@ void GenericExecutor::init() {
         }
     }
 
+    // cache setup
+    for (int i=0; i<plan.size(); ++i) {
+        for (int j=0; j<plan[i].size(); ++j) {
+            int src = plan[i][j].second;
+            if (src < i+1) {
+                available_level[i+2] = -1;
+                if (!cache_switch.contains(src)) {
+                    cache_switch.insert(std::unordered_map<int,std::vector<std::pair<int,int>>>::value_type (src,{}));
+                    cache_switch.reserve(plan.size());
+                }
+                cache_switch[src].push_back({i+2,j-1});
+                if (j == plan[i].size()-1) { has_full_cache.insert(i+2); }
+            }
+        }
+    }
+
     result_size = 0;
     intersection_count = 0;
 }
@@ -51,7 +68,12 @@ void GenericExecutor::init() {
 
 void GenericExecutor::run(std::unordered_map<std::string, std::string> &options) {
     Chrono_t start = get_time();
-    join();
+    if (options.contains("cache") && options["cache"]=="on") {
+        cache_join();
+    }
+    else {
+        join();
+    }
     Chrono_t end = get_time();
     time_stats["join_runtime"] = get_runtime(&start, &end);
     summarize_result();
@@ -71,23 +93,39 @@ void GenericExecutor::join() {
 }
 
 
+void GenericExecutor::cache_join() {
+    unsigned first = g->scan_keys[scan_vl];
+    unsigned last = g->scan_keys[scan_vl+1];
+
+    for (int i=first; i<last; ++i) {
+        assignment[order[0]] = i;
+        if (cache_switch.contains(0)) {
+            for (int j=0; j<cache_switch[0].size(); ++j) {
+                available_level[cache_switch[0][j].first] = cache_switch[0][j].second;
+            }
+        }
+        recursive_cache_join(1);
+    }
+    exec_stats["intersection_count"] = intersection_count;
+    exec_stats["result_size"] = result_size;
+}
+
+
 void GenericExecutor::recursive_join(int depth) {
     int vir_depth = depth - 1;
     int num_intersects = plan[vir_depth].size();
     
-    auto [key,src] = plan[vir_depth][0];
-    unsigned idx = key + assignment[src];
+    unsigned idx = plan[vir_depth][0].first + assignment[plan[vir_depth][0].second];
     unsigned *first = g->al_crs + g->al_keys[idx];
     unsigned *last = g->al_crs + g->al_keys[idx+1];
     match_nums[vir_depth][0] = last - first;
     std::memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
 
-    for (int i=1; i<plan[vir_depth].size(); ++i) {
+    for (int i=1; i<num_intersects; ++i) {
         ++intersection_count;
         unsigned *x_first = result_store[vir_depth][i-1];
         unsigned *x_last = result_store[vir_depth][i-1] + match_nums[vir_depth][i-1];
-        auto [y_key,y_src] = plan[vir_depth][i];
-        unsigned y_idx = y_key + assignment[y_src];
+        unsigned y_idx = plan[vir_depth][i].first + assignment[plan[vir_depth][i].second];
         unsigned *y_first = g->al_crs + g->al_keys[y_idx];
         unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
 
@@ -107,6 +145,7 @@ void GenericExecutor::recursive_join(int depth) {
             }
         }
         match_nums[vir_depth][i] = match_num;
+        if (match_num == 0) { break; }
     }
 
     unsigned *result = result_store[vir_depth][num_intersects-1];
@@ -120,6 +159,74 @@ void GenericExecutor::recursive_join(int depth) {
             recursive_join(depth+1);
         }
     }
+}
+
+
+void GenericExecutor::recursive_cache_join(int depth) {
+    find_assignables(depth);
+    int vir_depth = depth - 1;
+    int num_intersects = plan[vir_depth].size();
+
+    unsigned *result = result_store[vir_depth][num_intersects-1];
+    int match_num = match_nums[vir_depth][num_intersects-1];
+    for (int i=0; i<match_num; ++i) {
+        assignment[order[depth]] = result[i];
+        if (depth == order.size()-1) {
+            ++result_size;
+        }
+        else {
+            recursive_join(depth+1);
+        }
+    }
+}
+
+
+void GenericExecutor::find_assignables(int depth) {
+    int vir_depth = depth - 1;
+    int num_intersects = plan[vir_depth].size();
+
+    int level = available_level.contains(depth) ? available_level[depth] : -2;
+    if (level == num_intersects-1) { return; }
+    
+    if (level < 0) {
+        unsigned idx = plan[vir_depth][0].first + assignment[plan[vir_depth][0].second];
+        unsigned *first = g->al_crs + g->al_keys[idx];
+        unsigned *last = g->al_crs + g->al_keys[idx+1];
+        match_nums[vir_depth][0] = last - first;
+        std::memcpy(result_store[vir_depth][0], first, sizeof(unsigned)*(last-first));
+        if (level == -2) { return; }
+        ++level;
+    }
+
+    for (int i=level+1; i<num_intersects; ++i) {
+        ++intersection_count;
+        unsigned *x_first = result_store[vir_depth][i-1];
+        unsigned *x_last = result_store[vir_depth][i-1] + match_nums[vir_depth][i-1];
+        unsigned y_idx = plan[vir_depth][i].first + assignment[plan[vir_depth][i].second];
+        unsigned *y_first = g->al_crs + g->al_keys[y_idx];
+        unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
+
+        int match_num = 0;
+        while (x_first != x_last && y_first != y_last) {
+            if (*x_first < *y_first) {
+                ++x_first;
+            }
+            else if (*x_first > *y_first) {
+                ++y_first;
+            }
+            else {
+                result_store[vir_depth][i][match_num] = *x_first;
+                ++match_num;
+                ++x_first;
+                ++y_first;
+            }
+        }
+        match_nums[vir_depth][i] = match_num;
+        if (match_num == 0) { break; }
+    }
+
+    if (has_full_cache.contains(depth)) { available_level[depth]=num_intersects-1; }
+    else { available_level[depth] = num_intersects-2; }
 }
 
 

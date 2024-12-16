@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <memory>
+#include <unordered_set>
 
 
 class SimpleExecutor {
@@ -71,9 +72,13 @@ public:
 class GenericExecutor : public Executor {
 public:
     int scan_vl;
-    std::vector<std::vector<std::tuple<unsigned, int>>> plan;
+    std::vector<std::vector<std::pair<unsigned, int>>> plan;
     std::vector<std::vector<unsigned *>> result_store;
     std::vector<std::vector<int>> match_nums;
+
+    std::unordered_map<int,int> available_level;
+    std::unordered_map<int,std::vector<std::pair<int,int>>> cache_switch;
+    std::unordered_set<int> has_full_cache;
 
     GenericExecutor() {}
     GenericExecutor(std::string &data_dirpath, std::string &query_filepath) {
@@ -87,9 +92,11 @@ public:
     void init();
     void run(std::unordered_map<std::string, std::string> &options);
     void join();
+    void cache_join();
 
     void recursive_join(int depth);
-    int intersect(unsigned x, unsigned y); // intersectionの要素数を返す
+    void recursive_cache_join(int depth);
+    void find_assignables(int depth);
     void summarize_result();
 };
 
