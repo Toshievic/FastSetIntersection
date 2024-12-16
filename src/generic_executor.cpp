@@ -175,7 +175,13 @@ void GenericExecutor::recursive_cache_join(int depth) {
             ++result_size;
         }
         else {
-            recursive_join(depth+1);
+            recursive_cache_join(depth+1);
+            if (cache_switch.contains(depth)) {
+                for (int j=0; j<cache_switch[depth].size(); ++j) {
+                    auto [v,level] = cache_switch[depth][j];
+                    available_level[v] = std::min(available_level[v], level);
+                }
+            }
         }
     }
 }
