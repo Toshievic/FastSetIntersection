@@ -99,9 +99,9 @@ void GenericExecutor::cache_join() {
 
     for (int i=first; i<last; ++i) {
         assignment[order[0]] = i;
-        if (cache_switch.contains(0)) {
-            for (int j=0; j<cache_switch[0].size(); ++j) {
-                available_level[cache_switch[0][j].first] = cache_switch[0][j].second;
+        if (cache_switch.contains(order[0])) {
+            for (int j=0; j<cache_switch[order[0]].size(); ++j) {
+                available_level[cache_switch[order[0]][j].first] = cache_switch[order[0]][j].second;
             }
         }
         recursive_cache_join(1);
@@ -176,9 +176,9 @@ void GenericExecutor::recursive_cache_join(int depth) {
         }
         else {
             recursive_cache_join(depth+1);
-            if (cache_switch.contains(depth)) {
-                for (int j=0; j<cache_switch[depth].size(); ++j) {
-                    auto [v,level] = cache_switch[depth][j];
+            if (cache_switch.contains(order[depth])) {
+                for (int j=0; j<cache_switch[order[depth]].size(); ++j) {
+                    auto [v,level] = cache_switch[order[depth]][j];
                     available_level[v] = std::min(available_level[v], level);
                 }
             }
