@@ -145,7 +145,6 @@ void GenericExecutor::recursive_join(int depth) {
             }
         }
         match_nums[vir_depth][i] = match_num;
-        if (match_num == 0) { break; }
     }
 
     unsigned *result = result_store[vir_depth][num_intersects-1];
@@ -228,7 +227,6 @@ void GenericExecutor::find_assignables(int depth) {
             }
         }
         match_nums[vir_depth][i] = match_num;
-        if (match_num == 0) { break; }
     }
 
     if (has_full_cache.contains(depth)) { available_level[depth] = num_intersects-1; }
