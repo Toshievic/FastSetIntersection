@@ -93,14 +93,14 @@ void GenericExecutor::recursive_join(int depth) {
 
         int match_num = 0;
         while (x_first != x_last && y_first != y_last) {
-            if (x_first < y_first) {
+            if (*x_first < *y_first) {
                 ++x_first;
             }
-            else if (x_first > y_first) {
+            else if (*x_first > *y_first) {
                 ++y_first;
             }
             else {
-                result_store[vir_depth][i] = x_first;
+                result_store[vir_depth][i][match_num] = *x_first;
                 ++match_num;
                 ++x_first;
                 ++y_first;
