@@ -1,6 +1,7 @@
 #include "../include/executor_new.hpp"
 
 #include <cstring>
+#include <algorithm>
 
 
 void GenericExecutor::init() {
@@ -38,6 +39,8 @@ void GenericExecutor::init() {
         plan[i].resize(tmp_plan[i].size());
         result_store[i].resize(plan[i].size());
         match_nums[i].resize(plan[i].size());
+        std::sort(tmp_plan[i].begin(), tmp_plan[i].end(), [](const std::pair<unsigned, int>& a, const std::pair<unsigned, int>& b) {
+        return a.second < b.second;});
         for (int j=0; j<tmp_plan[i].size(); ++j) {
             plan[i][j] = tmp_plan[i][j];
             result_store[i][j] = new unsigned[g->graph_info["max_degree"]];
@@ -56,7 +59,7 @@ void GenericExecutor::init() {
                     cache_switch.insert(std::unordered_map<int,std::vector<std::pair<int,int>>>::value_type (src,{}));
                     cache_switch.reserve(plan.size());
                 }
-                cache_switch[src].push_back({i+1,j});
+                cache_switch[src].push_back({i+1,j-1});
                 if (src == i) { full_cache_flg = false; }
             }
         }
