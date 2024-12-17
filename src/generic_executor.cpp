@@ -47,6 +47,7 @@ void GenericExecutor::init() {
 
     // cache setup
     for (int i=0; i<plan.size(); ++i) {
+        bool full_cache_flg = true;
         for (int j=0; j<plan[i].size(); ++j) {
             int src = plan[i][j].second;
             if (src < i+1) {
@@ -56,9 +57,10 @@ void GenericExecutor::init() {
                     cache_switch.reserve(plan.size());
                 }
                 cache_switch[src].push_back({i+1,j-1});
-                if (j == plan[i].size()-1) { has_full_cache.insert(i+1); }
+                if (src == i) { full_cache_flg = false; }
             }
         }
+        if (full_cache_flg) { has_full_cache.insert(i+1); }
     }
 
     result_size = 0;
@@ -174,13 +176,13 @@ void GenericExecutor::recursive_cache_join(int depth) {
             ++result_size;
         }
         else {
-            recursive_cache_join(depth+1);
             if (cache_switch.contains(depth)) {
                 for (int j=0; j<cache_switch[depth].size(); ++j) {
                     auto [v,level] = cache_switch[depth][j];
                     available_level[v] = std::min(available_level[v], level);
                 }
             }
+            recursive_cache_join(depth+1);
         }
     }
 }
