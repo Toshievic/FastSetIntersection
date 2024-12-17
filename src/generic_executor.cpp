@@ -197,6 +197,7 @@ void GenericExecutor::find_assignables(int depth) {
 
     int level = available_level.contains(depth) ? available_level[depth] : -2;
     if (level == num_intersects-1) { return; }
+    for (int i=level==-2 ? 0 : level+1; i<num_intersects; ++i) { match_nums[vir_depth][i] = 0; }
     
     if (level < 0) {
         unsigned idx = plan[vir_depth][0].first + assignment[plan[vir_depth][0].second];
@@ -232,6 +233,7 @@ void GenericExecutor::find_assignables(int depth) {
             }
         }
         match_nums[vir_depth][i] = match_num;
+        if (match_num == 0) { break; }
     }
 
     if (has_full_cache.contains(depth)) { available_level[depth] = num_intersects-1; }
