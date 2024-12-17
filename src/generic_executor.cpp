@@ -56,7 +56,7 @@ void GenericExecutor::init() {
                     cache_switch.insert(std::unordered_map<int,std::vector<std::pair<int,int>>>::value_type (src,{}));
                     cache_switch.reserve(plan.size());
                 }
-                cache_switch[src].push_back({i+1,j-1});
+                cache_switch[src].push_back({i+1,j});
                 if (src == i) { full_cache_flg = false; }
             }
         }
