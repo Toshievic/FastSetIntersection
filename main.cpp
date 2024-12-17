@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
 
     std::unique_ptr<Executor> e = ExecutorCaller::call(method, data_dirpath, query_filepath);
 
-    for (int i=0; i<3; ++i) {
+    for (int i=0; i<1; ++i) {
         e->init();
         e->run(options);
     }
