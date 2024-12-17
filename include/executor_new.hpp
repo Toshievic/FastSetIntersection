@@ -31,10 +31,10 @@ public:
     Query *q;
     std::vector<int> order;
     std::unordered_map<std::string, double> time_stats;
-    std::unordered_map<std::string, unsigned> exec_stats;
+    std::unordered_map<std::string, unsigned long long> exec_stats;
     unsigned *assignment;
-    unsigned result_size;
-    unsigned intersection_count;
+    unsigned long long result_size;
+    unsigned long long intersection_count;
 
     virtual void init() {}
     virtual void run(std::unordered_map<std::string, std::string> &options) {}
