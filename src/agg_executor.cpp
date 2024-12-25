@@ -8,9 +8,10 @@ void AggExecutor::init() {
     std::unordered_map<std::string, int> meta;
 
     // need some changes
-    es.resize(3);
-    unsigned base_base;
-    int sr, ib, edl, dsl;
+    es.resize(2);
+    unsigned base_base1, base_base2;
+    int sr0, ib0, edl0, dsl0;
+    int sr1, ib1, edl1, dsl1;
 
     for (auto &triple : q->triples) {
         int src = order_inv[triple[0]];
@@ -29,22 +30,22 @@ void AggExecutor::init() {
 
         if (src == 0 && dst == 1) {
             scan_vl = sl;
-            es[0] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
-                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
+            base_base1 = g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl;
+            sr0 = src;
         }
         else if (src == 0 && dst == 2) {
-            base_base = g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl;
-            sr = src;
+            base_base2 = g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl;
+            sr1 = src;
         }
         else if (src == 1 && dst == 3) {
-            es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
-                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
+            ib0 = is_bwd; edl0 = el; dsl0 = dl;
         }
         else {
-            ib = is_bwd; edl = el; dsl = dl;
+            ib1 = is_bwd; edl1 = el; dsl1 = dl;
         }
     }
-    es[2] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * base_base + ib) + edl) + dsl), sr };
+    es[0] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * base_base1 + ib0) + edl0) + dsl0), sr0 };
+    es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * base_base2 + ib1) + edl1) + dsl1), sr1 };
 
     // 各種変数の初期化
     intersects = new unsigned[g->graph_info["max_degree"]];
@@ -74,18 +75,15 @@ void AggExecutor::join() {
 
     for (int i=first; i<last; ++i) {
         unsigned x = g->scan_crs[i];
-        unsigned idx0 = es[0].first + x;
-        unsigned j_first = g->al_keys[idx0];
-        unsigned j_last = g->al_keys[idx0+1];
-        for (int j=j_first; j<j_last; ++j) {
-            unsigned y = g->al_crs[j];
-            ++intersection_count;
-            int match_num = intersect_agg(es[1].first+y, es[2].first+x);
-            for (int k=0; k<match_num; ++k) {
-                unsigned z = intersects[k];
-                unsigned l_first = g->agg_al_keys[z];
-                unsigned l_last = g->agg_al_keys[z+1];
-                for (int l=l_first; l<l_last; ++l) {
+        ++intersection_count;
+        int match_num = intersect_agg(es[0].first+x, es[1].first+x);
+        for (int j=0; j<match_num; ++j) {
+            unsigned y = intersects[j];
+            unsigned k_first = g->agg_al_keys[y];
+            unsigned k_last = g->agg_al_keys[y+1];
+            for (int k=k_first; k<k_last; ++k) {
+                unsigned z = g->agg_2hop_crs[k];
+                for (int l=k_first; l<k_last; ++l) {
                     unsigned w = g->agg_2hop_crs[l];
                     ++result_size;
                 }
