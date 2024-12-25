@@ -8,7 +8,7 @@ void SimpleGenericExecutor::init() {
     std::unordered_map<std::string, int> meta;
 
     // need some changes
-    es.resize(2);
+    es.resize(3);
 
     for (auto &triple : q->triples) {
         int src = order_inv[triple[0]];

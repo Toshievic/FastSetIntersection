@@ -2,17 +2,47 @@
 
 
 void AggExecutor::init() {
-    std::unordered_map<std::string, int> meta = collect_meta();
+    std::unordered_map<int,int> order_inv;
+    for (int i=0; i<order.size(); i++) { order_inv[order[i]] = i; }
+    // scanを行うエッジの方向・ラベル, intersectionを行う隣接リストの方向・ラベルの特定
+    std::unordered_map<std::string, int> meta;
+
+    // need some changes
+    es.resize(3);
+    unsigned base_base;
+    int sr, ib, edl, dsl;
+
+    for (auto &triple : q->triples) {
+        int src = order_inv[triple[0]];
+        int el = triple[1];
+        int dst = order_inv[triple[2]];
+        int sl = q->vars[triple[0]];
+        int dl = q->vars[triple[2]];
+        int is_bwd = false;
+        if (src > dst) {
+            int tmp = src;
+            src = dst; dst = tmp;
+            tmp = sl;
+            sl = dl; dl = tmp;
+            is_bwd = true;
+        }
+        if (src == 0 && dst == 1) {
+            scan_vl = sl;
+            base_base = g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl;
+            sr = src;
+        }
+        else if (src == 0 && dst == 2) {
+            es[0] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
+                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
+        }
+        else {
+            ib = is_bwd; edl = el; dsl = dl;
+        }
+    }
+    es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * base_base + ib) + edl) + dsl), sr };
+
     // 各種変数の初期化
     intersects = new unsigned[g->graph_info["max_degree"]];
-    base_idx = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * (g->graph_info["num_v_labels"] * (
-        g->graph_info["num_e_labels"] * meta["dir0"] + meta["el0"]) + meta["dl0"]) + meta["dir1"]) + meta["el1"]) + meta["dl1"]);
-    x_base_idx = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
-        meta["dir0"] * g->graph_info["num_e_labels"] + meta["el0"]) + meta["dl0"]);
-    y_base_idx = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
-        meta["dir1"] * g->graph_info["num_e_labels"] + meta["el1"]) + meta["dl1"]);
-    scan_idx = g->graph_info["num_v_labels"] * (g->graph_info["num_v_labels"] * (
-        meta["scan_dir"] * g->graph_info["num_e_labels"] + meta["scan_el"]) + meta["scan_sl"]) + meta["scan_dl"];
 }
 
 
@@ -31,55 +61,64 @@ void AggExecutor::run(std::unordered_map<std::string, std::string> &options) {
 
 
 void AggExecutor::join() {
-    unsigned first = g->scan_keys[scan_idx];
-    unsigned last = g->scan_keys[scan_idx+1];
+    unsigned first = g->scan_keys[scan_vl];
+    unsigned last = g->scan_keys[scan_vl+1];
 
     unsigned result_size = 0;
     unsigned intersection_count = 0;
 
     for (int i=first; i<last; ++i) {
+        unsigned x = g->scan_crs[i];
         ++intersection_count;
-        unsigned num_results = intersect_agg(g->scan_srcs[i]);
-        result_size += num_results;
+        int match_num = intersect_agg(es[0].first+x, es[1].first+x);
+        for (int j=0; j<match_num; ++j) {
+            unsigned y = intersects[j];
+            unsigned k_first = g->agg_al_keys[y];
+            unsigned k_last = g->agg_al_keys[y+1];
+            for (int k=k_first; k<k_last; ++k) {
+                unsigned z = g->agg_2hop_crs[k];
+                ++result_size;
+            }
+        }
     }
+
     exec_stats["intersection_count"] = intersection_count;
     exec_stats["result_size"] = result_size;
 }
 
 
 void AggExecutor::hybrid_join() {
-    unsigned first = g->scan_keys[scan_idx];
-    unsigned last = g->scan_keys[scan_idx+1];
+    // unsigned first = g->scan_keys[scan_idx];
+    // unsigned last = g->scan_keys[scan_idx+1];
 
-    unsigned result_size = 0;
-    unsigned intersection_count = 0;
+    // unsigned result_size = 0;
+    // unsigned intersection_count = 0;
 
-    for (int i=first; i<last; ++i) {
-        unsigned dst_first = g->scan_crs[i];
-        unsigned dst_last = g->scan_crs[i+1];
-        for (int j=dst_first; j<dst_last; ++j) {
-            ++intersection_count;
-            int num_results = intersect(g->scan_srcs[i], g->scan_dst_crs[j]);
-            for (int k=0; k<num_results; ++k) {
-                assignment = {g->scan_srcs[i], g->scan_dst_crs[j], intersects[k]};
-                ++result_size;
-            }
-        }
-        ++intersection_count;
-        unsigned num_results = intersect_agg(g->scan_srcs[i]);
-        result_size += num_results;
-    }
-    exec_stats["intersection_count"] = intersection_count;
-    exec_stats["result_size"] = result_size;
+    // for (int i=first; i<last; ++i) {
+    //     unsigned dst_first = g->scan_crs[i];
+    //     unsigned dst_last = g->scan_crs[i+1];
+    //     for (int j=dst_first; j<dst_last; ++j) {
+    //         ++intersection_count;
+    //         int num_results = intersect(g->scan_srcs[i], g->scan_dst_crs[j]);
+    //         for (int k=0; k<num_results; ++k) {
+    //             assignment = {g->scan_srcs[i], g->scan_dst_crs[j], intersects[k]};
+    //             ++result_size;
+    //         }
+    //     }
+    //     ++intersection_count;
+    //     unsigned num_results = intersect_agg(g->scan_srcs[i]);
+    //     result_size += num_results;
+    // }
+    // exec_stats["intersection_count"] = intersection_count;
+    // exec_stats["result_size"] = result_size;
 }
 
 
-unsigned AggExecutor::intersect_agg(unsigned x) {
-    unsigned x_idx = x_base_idx + x;
-    unsigned y_first = g->agg_2hop_keys[base_idx+x];
-    unsigned y_last = g->agg_2hop_keys[base_idx+x+1];
-    unsigned *x_first = g->al_crs + g->al_keys[x_idx];
-    unsigned *x_last = g->al_crs + g->al_keys[x_idx+1];
+int AggExecutor::intersect_agg(unsigned x, unsigned y) {
+    unsigned y_first = g->agg_2hop_keys[y];
+    unsigned y_last = g->agg_2hop_keys[y+1];
+    unsigned *x_first = g->al_crs + g->al_keys[x];
+    unsigned *x_last = g->al_crs + g->al_keys[x+1];
     
     int match_num = 0;
 
@@ -98,18 +137,5 @@ unsigned AggExecutor::intersect_agg(unsigned x) {
         }
     }
 
-    unsigned num_results = 0;
-    for (int i=0; i<match_num; ++i) {
-        unsigned *first = g->agg_al_crs + g->agg_al_keys[intersects[i]];
-        unsigned *last = g->agg_al_crs + g->agg_al_keys[intersects[i]+1];
-        unsigned z = g->agg_2hop_crs[intersects[i]];
-
-        while (first != last) {
-            assignment = {x, *first, z};
-            ++num_results;
-            ++first;
-        }
-    }
-
-    return num_results;
+    return match_num;
 }

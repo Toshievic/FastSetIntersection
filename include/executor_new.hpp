@@ -117,7 +117,7 @@ public:
     void run(std::unordered_map<std::string, std::string> &options);
     void join();
     void hybrid_join();
-    unsigned intersect_agg(unsigned x);
+    int intersect_agg(unsigned x, unsigned y);
 };
 
 
@@ -127,9 +127,9 @@ public:
         if (method == "generic") {
             return std::make_unique<SimpleGenericExecutor>(data_dirpath, query_filepath);
         }
-        // else if (method == "agg") {
-        //     return std::make_unique<AggExecutor>(data_dirpath, query_filepath);
-        // }
+        else if (method == "agg") {
+            return std::make_unique<AggExecutor>(data_dirpath, query_filepath);
+        }
         else {
             std::cerr << "Error: Unknown method '" << method << "'\n";
             exit(1); 
