@@ -83,9 +83,10 @@ void AggExecutor::join() {
         ++intersection_count;
         int match_num = intersect_agg(es[0].first+x, es[1].first+x);
         for (int j=0; j<match_num; ++j) {
-            unsigned y = intersects[y];
+            unsigned y = intersects[j];
             unsigned k_first = g->agg_al_keys[y];
             unsigned k_last = g->agg_al_keys[y+1];
+            ++intersection_count;
             int match_num1 = intersect_sub(es[2].first+x, es[3].first+g->agg_2hop_crs[y]);
             for (int k=k_first; k<k_last; ++k) {
                 unsigned z = g->agg_al_crs[k];
