@@ -16,7 +16,7 @@ public:
     Query *q;
     std::vector<int> order;
     std::unordered_map<std::string, double> time_stats;
-    std::unordered_map<std::string, unsigned> exec_stats;
+    std::unordered_map<std::string, unsigned long long> exec_stats;
     std::tuple<unsigned,unsigned,unsigned> assignment;
 
     virtual void init() {}
