@@ -44,6 +44,7 @@ public:
 class SimpleGenericExecutor : public SimpleExecutor {
 public:
     unsigned *intersects; // intersection結果の格納場所
+    unsigned *intersects_sub; // intersection結果の格納場所
     int scan_vl;
     std::vector<std::pair<unsigned, int>> es;
 
@@ -63,6 +64,7 @@ public:
     void join_with_lazy_update();
 
     int intersect(unsigned x, unsigned y); // intersectionの要素数を返す
+    int intersect_sub(unsigned x, unsigned y); // intersectionの要素数を返す
     int intersect_for_factorize(unsigned *x_first, unsigned *x_last, unsigned y); // intersectionの要素数を返す
     int intersect_lazy_update(unsigned x, unsigned y);
     void summarize_result();

@@ -8,7 +8,7 @@ void SimpleGenericExecutor::init() {
     std::unordered_map<std::string, int> meta;
 
     // need some changes
-    es.resize(4);
+    es.resize(5);
 
     for (auto &triple : q->triples) {
         int src = order_inv[triple[0]];
@@ -29,22 +29,27 @@ void SimpleGenericExecutor::init() {
             es[0] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
-        else if (src == 1 && dst == 2) {
+        else if (src == 0 && dst == 2) {
             es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
-        else if (src == 0 && dst == 3) {
+        else if (src == 1 && dst == 2) {
             es[2] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
-        else {
+        else if (src == 0 && dst == 3) {
             es[3] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
+                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
+        }
+        else {
+            es[4] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
     }
 
     // 各種変数の初期化
     intersects = new unsigned[g->graph_info["max_degree"]];
+    intersects_sub = new unsigned[g->graph_info["max_degree"]];
 }
 
 
@@ -82,14 +87,12 @@ void SimpleGenericExecutor::join() {
         unsigned j_last = g->al_keys[idx0+1];
         for (int j=j_first; j<j_last; ++j) {
             unsigned y = g->al_crs[j];
-            unsigned idx1 = es[1].first + y;
-            unsigned k_first = g->al_keys[idx1];
-            unsigned k_last = g->al_keys[idx1+1];
-            for (int k=k_first; k<k_last; ++k) {
-                unsigned z = g->al_crs[k];
-                ++intersection_count;
-                int match_num = intersect(es[2].first+x, es[3].first+z);
-                for (int l=0; l<match_num; ++l) {
+            ++intersection_count;
+            int match_num0 = intersect(es[1].first+x, es[2].first+y);
+            int match_num1 = intersect_sub(es[3].first+x, es[4].first+y);
+            for (int k=0; k<match_num0; ++k) {
+                unsigned z = intersects[k];
+                for (int l=0; l<match_num1; ++l) {
                     unsigned w = intersects[l];
                     ++result_size;
                 }
@@ -118,6 +121,33 @@ int SimpleGenericExecutor::intersect(unsigned x, unsigned y) {
         }
         else {
             intersects[match_num] = *x_first;
+            ++match_num;
+            ++x_first;
+            ++y_first;
+        }
+    }
+
+    return match_num;
+}
+
+
+int SimpleGenericExecutor::intersect_sub(unsigned x, unsigned y) {
+    unsigned *x_first = g->al_crs + g->al_keys[x];
+    unsigned *x_last = g->al_crs + g->al_keys[x+1];
+    unsigned *y_first = g->al_crs + g->al_keys[y];
+    unsigned *y_last = g->al_crs + g->al_keys[y+1];
+
+    int match_num = 0;
+
+    while (x_first != x_last && y_first != y_last) {
+        if (*x_first < *y_first) {
+            ++x_first;
+        }
+        else if (*x_first > *y_first) {
+            ++y_first;
+        }
+        else {
+            intersects_sub[match_num] = *x_first;
             ++match_num;
             ++x_first;
             ++y_first;
