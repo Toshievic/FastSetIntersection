@@ -2,23 +2,13 @@
 
 
 void SimpleGenericExecutor::init() {
-    std::unordered_map<std::string, int> meta = collect_meta();
-    // 各種変数の初期化
-    intersects = new unsigned[g->graph_info["max_degree"]];
-    x_base_idx = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
-        meta["dir0"] * g->graph_info["num_e_labels"] + meta["el0"]) + meta["dl0"]);
-    y_base_idx = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
-        meta["dir1"] * g->graph_info["num_e_labels"] + meta["el1"]) + meta["dl1"]);
-    scan_idx = g->graph_info["num_v_labels"] * (g->graph_info["num_v_labels"] * (
-        meta["scan_dir"] * g->graph_info["num_e_labels"] + meta["scan_el"]) + meta["scan_sl"]) + meta["scan_dl"];
-}
-
-
-std::unordered_map<std::string, int> SimpleGenericExecutor::collect_meta() {
     std::unordered_map<int,int> order_inv;
     for (int i=0; i<order.size(); i++) { order_inv[order[i]] = i; }
     // scanを行うエッジの方向・ラベル, intersectionを行う隣接リストの方向・ラベルの特定
     std::unordered_map<std::string, int> meta;
+
+    // need some changes
+    es.resize(2);
 
     for (auto &triple : q->triples) {
         int src = order_inv[triple[0]];
@@ -35,21 +25,22 @@ std::unordered_map<std::string, int> SimpleGenericExecutor::collect_meta() {
             is_bwd = true;
         }
         if (src == 0 && dst == 1) {
-            meta["scan_dir"] = is_bwd;
-            meta["scan_el"] = el;
-            meta["scan_sl"] = sl;
-            meta["scan_dl"] = dl;
-            continue;
+            scan_vl = sl;
+            es[0] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
+                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
-        std::string dir = "dir" + std::to_string(src);
-        std::string edge_label = "el" + std::to_string(src);
-        std::string dst_label = "dl" + std::to_string(src);
-        meta[dir] = is_bwd;
-        meta[edge_label] = el;
-        meta[dst_label] = dl;
+        else if (src == 0 && dst == 2) {
+            es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
+                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
+        }
+        else {
+            es[2] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
+                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
+        }
     }
 
-    return meta;
+    // 各種変数の初期化
+    intersects = new unsigned[g->graph_info["max_degree"]];
 }
 
 
@@ -74,18 +65,25 @@ void SimpleGenericExecutor::run(std::unordered_map<std::string, std::string> &op
 
 
 void SimpleGenericExecutor::join() {
-    unsigned first = g->scan_keys[scan_idx];
-    unsigned last = g->scan_keys[scan_idx+1];
+    unsigned first = g->scan_keys[scan_vl];
+    unsigned last = g->scan_keys[scan_vl+1];
 
     unsigned result_size = 0;
     unsigned intersection_count = 0;
 
     for (int i=first; i<last; ++i) {
-        ++intersection_count;
-        int num_results = intersect(g->scan_crs[i], g->scan_dst_crs[i]);
-        for (int j=0; j<num_results; ++j) {
-            assignment = {g->scan_crs[i], g->scan_dst_crs[i], intersects[j]};
-            ++result_size;
+        unsigned x = g->scan_crs[i];
+        unsigned idx0 = es[0].first + x;
+        unsigned j_first = g->al_keys[idx0];
+        unsigned j_last = g->al_keys[idx0+1];
+        for (int j=j_first; j<j_last; ++j) {
+            unsigned y = g->al_crs[j];
+            ++intersection_count;
+            int match_num = intersect(es[1].first+x, es[2].first+y);
+            for (int k=0; k<match_num; ++k) {
+                unsigned z = intersects[k];
+                ++result_size;
+            }
         }
     }
     exec_stats["intersection_count"] = intersection_count;
@@ -94,12 +92,10 @@ void SimpleGenericExecutor::join() {
 
 
 int SimpleGenericExecutor::intersect(unsigned x, unsigned y) {
-    unsigned x_idx = x_base_idx + x;
-    unsigned y_idx = y_base_idx + y;
-    unsigned *x_first = g->al_crs + g->al_keys[x_idx];
-    unsigned *x_last = g->al_crs + g->al_keys[x_idx+1];
-    unsigned *y_first = g->al_crs + g->al_keys[y_idx];
-    unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
+    unsigned *x_first = g->al_crs + g->al_keys[x];
+    unsigned *x_last = g->al_crs + g->al_keys[x+1];
+    unsigned *y_first = g->al_crs + g->al_keys[y];
+    unsigned *y_last = g->al_crs + g->al_keys[y+1];
 
     int match_num = 0;
 
@@ -123,111 +119,111 @@ int SimpleGenericExecutor::intersect(unsigned x, unsigned y) {
 
 
 void SimpleGenericExecutor::factorize_join() {
-    // 0番目の頂点が更新されない限り, 読み込みを発生させない
-    unsigned first = g->scan_keys[scan_idx];
-    unsigned last = g->scan_keys[scan_idx+1];
+    // // 0番目の頂点が更新されない限り, 読み込みを発生させない
+    // unsigned first = g->scan_keys[scan_idx];
+    // unsigned last = g->scan_keys[scan_idx+1];
 
-    unsigned last_src = g->scan_crs[0];
-    unsigned x_idx = x_base_idx + last_src;
-    unsigned *x_first = g->al_crs + g->al_keys[x_idx];
-    unsigned *x_last = g->al_crs + g->al_keys[x_idx+1];
+    // unsigned last_src = g->scan_crs[0];
+    // unsigned x_idx = x_base_idx + last_src;
+    // unsigned *x_first = g->al_crs + g->al_keys[x_idx];
+    // unsigned *x_last = g->al_crs + g->al_keys[x_idx+1];
 
-    unsigned result_size = 0;
-    unsigned intersection_count = 0;
+    // unsigned result_size = 0;
+    // unsigned intersection_count = 0;
 
-    for (int i=first; i<last; ++i) {
-        ++intersection_count;
-        if (g->scan_crs[i] != last_src) {
-            last_src = g->scan_crs[i];
-            unsigned x_idx = x_base_idx + last_src;
-            x_first = g->al_crs + g->al_keys[x_idx];
-            x_last = g->al_crs + g->al_keys[x_idx+1];
-        }
-        int num_results = intersect_for_factorize(x_first, x_last, g->scan_dst_crs[i]);
-        for (int j=0; j<num_results; ++j) {
-            ++result_size;
-        }
-    }
-    exec_stats["intersection_count"] = intersection_count;
-    exec_stats["result_size"] = result_size;
+    // for (int i=first; i<last; ++i) {
+    //     ++intersection_count;
+    //     if (g->scan_crs[i] != last_src) {
+    //         last_src = g->scan_crs[i];
+    //         unsigned x_idx = x_base_idx + last_src;
+    //         x_first = g->al_crs + g->al_keys[x_idx];
+    //         x_last = g->al_crs + g->al_keys[x_idx+1];
+    //     }
+    //     int num_results = intersect_for_factorize(x_first, x_last, g->scan_dst_crs[i]);
+    //     for (int j=0; j<num_results; ++j) {
+    //         ++result_size;
+    //     }
+    // }
+    // exec_stats["intersection_count"] = intersection_count;
+    // exec_stats["result_size"] = result_size;
 }
 
 
 int SimpleGenericExecutor::intersect_for_factorize(unsigned *x_first, unsigned *x_last, unsigned y) {
-    unsigned y_idx = y_base_idx + y;
-    unsigned *y_first = g->al_crs + g->al_keys[y_idx];
-    unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
+    // unsigned y_idx = y_base_idx + y;
+    // unsigned *y_first = g->al_crs + g->al_keys[y_idx];
+    // unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
 
     int match_num = 0;
 
-    while (x_first != x_last && y_first != y_last) {
-        if (*x_first < *y_first) {
-            ++x_first;
-        }
-        else if (*x_first > *y_first) {
-            ++y_first;
-        }
-        else {
-            intersects[match_num] = *x_first;
-            ++match_num;
-            ++x_first;
-            ++y_first;
-        }
-    }
+    // while (x_first != x_last && y_first != y_last) {
+    //     if (*x_first < *y_first) {
+    //         ++x_first;
+    //     }
+    //     else if (*x_first > *y_first) {
+    //         ++y_first;
+    //     }
+    //     else {
+    //         intersects[match_num] = *x_first;
+    //         ++match_num;
+    //         ++x_first;
+    //         ++y_first;
+    //     }
+    // }
 
     return match_num;
 }
 
 
 void SimpleGenericExecutor::join_with_lazy_update() {
-    unsigned first = g->scan_keys[scan_idx];
-    unsigned last = g->scan_keys[scan_idx+1];
+    // unsigned first = g->scan_keys[scan_idx];
+    // unsigned last = g->scan_keys[scan_idx+1];
 
-    unsigned result_size = 0;
-    unsigned intersection_count = 0;
+    // unsigned result_size = 0;
+    // unsigned intersection_count = 0;
 
-    for (int i=first; i<last; ++i) {
-        ++intersection_count;
-        int num_results = intersect_lazy_update(g->scan_crs[i], g->scan_dst_crs[i]);
-        for (int j=0; j<num_results; ++j) {
-            ++result_size;
-        }
-    }
-    exec_stats["intersection_count"] = intersection_count;
-    exec_stats["result_size"] = result_size;
+    // for (int i=first; i<last; ++i) {
+    //     ++intersection_count;
+    //     int num_results = intersect_lazy_update(g->scan_crs[i], g->scan_dst_crs[i]);
+    //     for (int j=0; j<num_results; ++j) {
+    //         ++result_size;
+    //     }
+    // }
+    // exec_stats["intersection_count"] = intersection_count;
+    // exec_stats["result_size"] = result_size;
 }
 
 
 int SimpleGenericExecutor::intersect_lazy_update(unsigned x, unsigned y) {
-    unsigned x_idx = x_base_idx + x;
-    unsigned y_idx = y_base_idx + y;
-    unsigned *x_first = g->al_crs + g->al_keys[x_idx];
-    unsigned *x_last = g->al_crs + g->al_keys[x_idx+1];
-    unsigned *y_first = g->al_crs + g->al_keys[y_idx];
-    unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
+    // unsigned x_idx = x_base_idx + x;
+    // unsigned y_idx = y_base_idx + y;
+    // unsigned *x_first = g->al_crs + g->al_keys[x_idx];
+    // unsigned *x_last = g->al_crs + g->al_keys[x_idx+1];
+    // unsigned *y_first = g->al_crs + g->al_keys[y_idx];
+    // unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
 
     int match_num = 0;
 
-    while (x_first != x_last && y_first != y_last) {
-        if (*x_first < *y_first) {
-            ++x_first;
-            while (x_first != x_last && *x_first < *y_first) {
-                ++x_first;
-            }
-        }
-        else if (*x_first > *y_first) {
-            ++y_first;
-            while (y_first != y_last && *x_first > *y_first) {
-                ++y_first;
-            }
-        }
-        else {
-            intersects[match_num] = *x_first;
-            ++match_num;
-            ++x_first;
-            ++y_first;
-        }
-    }
+    // while (x_first != x_last && y_first != y_last) {
+    //     if (*x_first < *y_first) {
+    //         ++x_first;
+    //         while (x_first != x_last && *x_first < *y_first) {
+    //             ++x_first;
+    //         }
+    //     }
+    //     else if (*x_first > *y_first) {
+    //         ++y_first;
+    //         while (y_first != y_last && *x_first > *y_first) {
+    //             ++y_first;
+    //         }
+    //     }
+    //     else {
+    //         intersects[match_num] = *x_first;
+    //         ++match_num;
+    //         ++x_first;
+    //         ++y_first;
+    //     }
+    // }
 
     return match_num;
 }

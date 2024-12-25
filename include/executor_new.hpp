@@ -44,7 +44,8 @@ public:
 class SimpleGenericExecutor : public SimpleExecutor {
 public:
     unsigned *intersects; // intersection結果の格納場所
-    int x_base_idx, y_base_idx, scan_idx;
+    int scan_vl;
+    std::vector<std::pair<unsigned, int>> es;
 
     SimpleGenericExecutor() {}
     SimpleGenericExecutor(std::string &data_dirpath, std::string &query_filepath) {
@@ -56,7 +57,6 @@ public:
     }
 
     void init();
-    std::unordered_map<std::string, int> collect_meta();
     void run(std::unordered_map<std::string, std::string> &options);
     void join();
     void factorize_join();
@@ -123,9 +123,9 @@ public:
 
 class ExecutorCaller {
 public:
-    static std::unique_ptr<Executor> call(std::string &method, std::string &data_dirpath, std::string &query_filepath) {
+    static std::unique_ptr<SimpleExecutor> call(std::string &method, std::string &data_dirpath, std::string &query_filepath) {
         if (method == "generic") {
-            return std::make_unique<GenericExecutor>(data_dirpath, query_filepath);
+            return std::make_unique<SimpleGenericExecutor>(data_dirpath, query_filepath);
         }
         // else if (method == "agg") {
         //     return std::make_unique<AggExecutor>(data_dirpath, query_filepath);
