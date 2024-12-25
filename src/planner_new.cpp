@@ -7,7 +7,7 @@ std::vector<int> get_plan(Query *q, LabeledGraph *g, std::string &executor_name)
         {"Q1_n", {0,1,2}},
         {"Q1", {0,1,2}},
         {"Q2_n", {0,2,1,3}},
-        {"Q2", {2,3,1,0}},
+        {"Q2", {0,2,1,3}},
         {"Q3_n", {0,1,3,2}},
         {"Q3_n_slashdot", {0,2,1,3}},
         {"Q3_n_amazon", {1,3,0,2}},
