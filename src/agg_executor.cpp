@@ -49,6 +49,7 @@ void AggExecutor::init() {
 
     // 各種変数の初期化
     intersects = new unsigned[g->graph_info["max_degree"]];
+    intersects_sub = new unsigned[g->graph_info["max_degree"]];
 }
 
 
@@ -78,12 +79,15 @@ void AggExecutor::join() {
         ++intersection_count;
         int match_num = intersect_agg(es[0].first+x, es[1].first+x);
         for (int j=0; j<match_num; ++j) {
-            unsigned y = intersects[j];
-            unsigned k_first = g->agg_al_keys[y];
-            unsigned k_last = g->agg_al_keys[y+1];
+            unsigned y0 = intersects[j];
+            unsigned y1 = intersects_sub[j];
+            unsigned k_first = g->agg_al_keys[y0];
+            unsigned k_last = g->agg_al_keys[y0+1];
+            unsigned l_first = g->agg_al_keys[y1];
+            unsigned l_last = g->agg_al_keys[y1+1];
             for (int k=k_first; k<k_last; ++k) {
                 unsigned z = g->agg_2hop_crs[k];
-                for (int l=k_first; l<k_last; ++l) {
+                for (int l=l_first; l<l_last; ++l) {
                     unsigned w = g->agg_2hop_crs[l];
                     ++result_size;
                 }
@@ -140,6 +144,34 @@ int AggExecutor::intersect_agg(unsigned x, unsigned y) {
         }
         else {
             intersects[match_num] = y_first;
+            ++match_num;
+            ++x_first;
+            ++y_first;
+        }
+    }
+
+    return match_num;
+}
+
+
+int AggExecutor::intersect_wagg(unsigned x, unsigned y) {
+    unsigned y_first = g->agg_2hop_keys[y];
+    unsigned y_last = g->agg_2hop_keys[y+1];
+    unsigned x_first = g->agg_2hop_keys[x];
+    unsigned x_last = g->agg_2hop_keys[x+1];
+    
+    int match_num = 0;
+
+    while (x_first != x_last && y_first != y_last) {
+        if (g->agg_2hop_crs[x_first] < g->agg_2hop_crs[y_first]) {
+            ++x_first;
+        }
+        else if (g->agg_2hop_crs[x_first] > g->agg_2hop_crs[y_first]) {
+            ++y_first;
+        }
+        else {
+            intersects[match_num] = x_first;
+            intersects_sub[match_num] = y_first;
             ++match_num;
             ++x_first;
             ++y_first;

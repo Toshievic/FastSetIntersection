@@ -104,6 +104,7 @@ public:
 class AggExecutor : public SimpleGenericExecutor {
 public:
     int base_idx;
+    unsigned *intersects_sub;
 
     AggExecutor(std::string &data_dirpath, std::string &query_filepath) {
         executor_name = "agg";
@@ -118,6 +119,7 @@ public:
     void join();
     void hybrid_join();
     int intersect_agg(unsigned x, unsigned y);
+    int intersect_wagg(unsigned x, unsigned y);
 };
 
 
