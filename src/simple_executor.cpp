@@ -8,7 +8,7 @@ void SimpleGenericExecutor::init() {
     std::unordered_map<std::string, int> meta;
 
     // need some changes
-    es.resize(5);
+    es.resize(6);
 
     for (auto &triple : q->triples) {
         int src = order_inv[triple[0]];
@@ -41,8 +41,12 @@ void SimpleGenericExecutor::init() {
             es[3] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
-        else {
+        else if (src == 1 && dst == 3) {
             es[4] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
+                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
+        }
+        else {
+            es[5] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
     }
