@@ -69,8 +69,8 @@ void AggExecutor::join() {
     unsigned first = g->scan_keys[scan_vl];
     unsigned last = g->scan_keys[scan_vl+1];
 
-    unsigned result_size = 0;
-    unsigned intersection_count = 0;
+    unsigned long long result_size = 0;
+    unsigned long long intersection_count = 0;
 
     for (int i=first; i<last; ++i) {
         unsigned x = g->scan_crs[i];
