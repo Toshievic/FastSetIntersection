@@ -8,8 +8,8 @@ void AggExecutor::init() {
     std::unordered_map<std::string, int> meta;
 
     // need some changes
-    es.resize(3);
-    unsigned base_base1, base_base2;
+    es.resize(4);
+    unsigned base_base0, base_base1;
     int sr0, ib0, edl0, dsl0;
     int sr1, ib1, edl1, dsl1;
 
@@ -30,22 +30,26 @@ void AggExecutor::init() {
 
         if (src == 0 && dst == 1) {
             scan_vl = sl;
+            base_base0 = g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl;
+            sr0 = src;
+        }
+        else if (src == 0 && dst == 2) {
             es[0] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
         else if (src == 1 && dst == 2) {
-            base_base1 = g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl;
-            sr0 = src;
+            ib0 = is_bwd; edl0 = el; dsl0 = dl;
         }
         else if (src == 0 && dst == 3) {
-            es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
+            es[2] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
         else {
-            ib0 = is_bwd; edl0 = el; dsl0 = dl;
+            es[3] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
+                is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
     }
-    es[2] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * base_base1 + ib0) + edl0) + dsl0), sr0 };
+    es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * base_base0 + ib0) + edl0) + dsl0), sr0 };
     
     // 各種変数の初期化
     intersects = new unsigned[g->graph_info["max_degree"]];
@@ -76,19 +80,17 @@ void AggExecutor::join() {
 
     for (int i=first; i<last; ++i) {
         unsigned x = g->scan_crs[i];
-        unsigned idx0 = es[0].first + x;
-        unsigned j_first = g->al_keys[idx0];
-        unsigned j_last = g->al_keys[idx0+1];
-        for (int j=j_first; j<j_last; ++j) {
-            unsigned y = g->al_crs[j];
-            ++intersection_count;
-            int match_num = intersect_agg(es[1].first+x, es[2].first+y);
-            for (int k=0; k<match_num; ++k) {
-                unsigned z = intersects[k];
-                unsigned l_first = g->agg_al_keys[z];
-                unsigned l_last = g->agg_al_keys[z+1];
-                for (int l=l_first; l<l_last; ++l) {
-                    unsigned w = g->agg_al_crs[l];
+        ++intersection_count;
+        int match_num = intersect_agg(es[0].first+x, es[1].first+x);
+        for (int j=0; j<match_num; ++j) {
+            unsigned y = intersects[y];
+            unsigned k_first = g->agg_al_keys[y];
+            unsigned k_last = g->agg_al_keys[y+1];
+            int match_num1 = intersect_sub(es[2].first+x, es[3].first+g->agg_2hop_crs[y]);
+            for (int k=k_first; k<k_last; ++k) {
+                unsigned z = g->agg_al_crs[k];
+                for (int l=0; l<match_num1; ++l) {
+                    unsigned w = intersects_sub[l];
                     ++result_size;
                 }
             }
