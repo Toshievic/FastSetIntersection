@@ -77,7 +77,7 @@ void AggExecutor::join() {
     for (int i=first; i<last; ++i) {
         unsigned x = g->scan_crs[i];
         ++intersection_count;
-        int match_num = intersect_agg(es[0].first+x, es[1].first+x);
+        int match_num = intersect_wagg(es[0].first+x, es[1].first+x);
         for (int j=0; j<match_num; ++j) {
             unsigned y0 = intersects[j];
             unsigned y1 = intersects_sub[j];
