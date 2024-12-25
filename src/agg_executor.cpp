@@ -47,7 +47,6 @@ void AggExecutor::init() {
     es[0] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * base_base1 + ib0) + edl0) + dsl0), sr0 };
     es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * base_base2 + ib1) + edl1) + dsl1), sr1 };
 
-    std::cout << es[0].first << ", " << es[1].first << std::endl;
     // 各種変数の初期化
     intersects = new unsigned[g->graph_info["max_degree"]];
     intersects_sub = new unsigned[g->graph_info["max_degree"]];
@@ -87,9 +86,9 @@ void AggExecutor::join() {
             unsigned l_first = g->agg_al_keys[y1];
             unsigned l_last = g->agg_al_keys[y1+1];
             for (int k=k_first; k<k_last; ++k) {
-                unsigned z = g->agg_2hop_crs[k];
+                unsigned z = g->agg_al_crs[k];
                 for (int l=l_first; l<l_last; ++l) {
-                    unsigned w = g->agg_2hop_crs[l];
+                    unsigned w = g->agg_al_crs[l];
                     ++result_size;
                 }
             }
