@@ -80,7 +80,7 @@ void AggExecutor::join() {
         unsigned j_first = g->al_keys[idx0];
         unsigned j_last = g->al_keys[idx0+1];
         for (int j=j_first; j<j_last; ++j) {
-            unsigned y = g->al_crs[i];
+            unsigned y = g->al_crs[j];
             ++intersection_count;
             int match_num = intersect_agg(es[1].first+x, es[2].first+y);
             for (int k=0; k<match_num; ++k) {

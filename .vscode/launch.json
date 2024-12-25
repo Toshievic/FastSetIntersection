@@ -9,7 +9,7 @@
         "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/exec_debug.out",
-        "args": ["--data_dirpath", "${cwd}/data/slashdot", "--query_filepath", "${cwd}/query/Q1_n_slashdot.txt", "--method", "agg"],
+        "args": ["--data_dirpath", "${cwd}/data/berkstan", "--query_filepath", "${cwd}/query/Q6_n_amazon.txt", "--method", "generic", "--options", "cache=on"],
         "cwd": "${workspaceFolder}",
         },
         {
