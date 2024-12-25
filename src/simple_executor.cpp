@@ -29,11 +29,11 @@ void SimpleGenericExecutor::init() {
             es[0] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
-        else if (src == 0 && dst == 2) {
+        else if (src == 1 && dst == 2) {
             es[1] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
-        else if (src == 1 && dst == 3) {
+        else if (src == 0 && dst == 3) {
             es[2] = { g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (
                 is_bwd * g->graph_info["num_e_labels"] + el) + dl), src };
         }
@@ -78,17 +78,17 @@ void SimpleGenericExecutor::join() {
     for (int i=first; i<last; ++i) {
         unsigned x = g->scan_crs[i];
         unsigned idx0 = es[0].first + x;
-        unsigned idx1 = es[1].first + x;
         unsigned j_first = g->al_keys[idx0];
         unsigned j_last = g->al_keys[idx0+1];
-        unsigned k_first = g->al_keys[idx1];
-        unsigned k_last = g->al_keys[idx1+1];
         for (int j=j_first; j<j_last; ++j) {
             unsigned y = g->al_crs[j];
+            unsigned idx1 = es[1].first + y;
+            unsigned k_first = g->al_keys[idx1];
+            unsigned k_last = g->al_keys[idx1+1];
             for (int k=k_first; k<k_last; ++k) {
                 unsigned z = g->al_crs[k];
                 ++intersection_count;
-                int match_num = intersect(es[2].first+y, es[3].first+z);
+                int match_num = intersect(es[2].first+x, es[3].first+z);
                 for (int l=0; l<match_num; ++l) {
                     unsigned w = intersects[l];
                     ++result_size;
