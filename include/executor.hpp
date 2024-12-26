@@ -1,154 +1,140 @@
-#ifndef EXECUTOR_HPP
-#define EXECUTOR_HPP
+#ifndef EXECUTOR_NEW_HPP
+#define EXECUTOR_NEW_HPP
 
-#include "../include/labeled_graph.hpp"
-#include "../include/query.hpp"
-#include "../include/util.hpp"
+#include "util.hpp"
+#include "planner.hpp"
 
+#include <iostream>
+#include <memory>
 #include <unordered_set>
 
 
-class GenericJoin {
+class SimpleExecutor {
 public:
-    bool debug;
-    string executor_name;
-    unordered_map<string,int> method_dict = {
-        {"multiway", 0},
-        {"pairwise", 1},
-        {"bitset", 2},
-        {"2hop", 3}
-    };
-    int method_id;
-    double runtime;
-    vector<unsigned*> *stats;
-    LabeledGraph *lg;
+    std::string executor_name;
+    LabeledGraph *g;
     Query *q;
-    int num_variables;
-    vector<int> vertex_order;
-    unordered_map<int,int> v_index;
+    std::vector<int> order;
+    std::unordered_map<std::string, double> time_stats;
+    std::unordered_map<std::string, unsigned> exec_stats;
+    std::tuple<unsigned,unsigned,unsigned> assignment;
 
-    int scanned_el, scanned_sl, scanned_dl;
-    bool scanned_dir;
-    vector<vector<tuple<int,int,int,int>>> descriptors;
-
-    pair<unsigned*, unsigned*> *indices;
-
-    vector<unsigned> scanned_srcs;
-    vector<unsigned> scanned_dsts;
-    unsigned *tmp_result;
-    unsigned *keys;
-    vector<unsigned> *intersection_result;
-    unsigned *match_nums;
-    unsigned long result_size;
-    unsigned intersection_count;
-    unsigned long match_num_total, al_len_total;
-    unsigned num_comparison;
-    unordered_map<int, unsigned> update_num, empty_num;
-    unordered_map<int, double> lev_runtime, empty_runtime;
-
-    vector<vector<unsigned long long>> validate_pool;
-
-    // keyがキャッシュのキーのうちQVOが最も遅い頂点, valueがキャッシュ値
-    unordered_map<int, vector<int>> cache_switch;
-    unordered_map<int, bool> cache_available;
-    bitset<BITSET_SIZE> filter_bs;
-    vector<unsigned> bit_num_stat;
-
-    GenericJoin() {}
-    GenericJoin(bool b, vector<unsigned*> *stats) {
-        debug = b;
-        this->stats = stats;
-        this->executor_name = "GJ";
-    }
-
-    void decide_plan(LabeledGraph *lg, Query *query);
-    virtual void setup();
-
-    void run(string &method_name);
-    void get_single_assignment();
-    virtual void multiway_join();
-    virtual void recursive_join(int current_depth);
-    virtual void find_assignables(int current_depth); // 一気に全部intersection
-    virtual void find_assignables_v2(int current_depth); // binary intersection
-    virtual void find_assignables_with_bitset(int current_depth); // binary intersection
-    virtual void find_assignables_with_2hop(int current_depth);
-
-    void summarize();
+    virtual void init() {}
+    virtual void run(std::unordered_map<std::string, std::string> &options) {}
 };
 
 
-class AlphaGenericJoin : public GenericJoin {
-private:
-    vector<vector<unsigned *>> result_store;
-    vector<vector<int>> match_nums;
+class Executor {
 public:
-    unordered_map<int,int> available_level;
-    unordered_map<int,vector<pair<int,int>>> cache_switch;
-    unordered_set<int> has_full_cache;
-    vector<bitset<BITSET_SIZE>*> bs_store;
-    unsigned *idxes;
-    vector<vector<unsigned long long>> validate_pool;
-    int *calc_level; // BitFilterによって空集合判定された際にキャッシュが利用可能なレベル
-    unsigned dist_counter[3];
+    std::string executor_name;
+    LabeledGraph *g;
+    Query *q;
+    std::vector<int> order;
+    std::unordered_map<std::string, double> time_stats;
+    std::unordered_map<std::string, unsigned long long> exec_stats;
+    unsigned *assignment;
+    unsigned long long result_size;
+    unsigned long long intersection_count;
 
-    using GenericJoin::GenericJoin;
-    AlphaGenericJoin(bool b, vector<unsigned*> *stats) {
-        debug = b;
-        this->stats = stats;
-        this->executor_name = "AGJ";
-    }
-
-    void setup();
-    void multiway_join();
-    void recursive_join(int current_depth);
-    void find_assignables(int current_depth);
-    void find_assignables_v2(int current_depth);
-    void find_assignables_with_bitset(int current_depth);
-    void find_assignables_with_2hop(int current_depth);
-    void find_assignables_exp(int current_depth);
+    virtual void init() {}
+    virtual void run(std::unordered_map<std::string, std::string> &options) {}
 };
 
 
-class BetaGenericJoin : public AlphaGenericJoin {
+class SimpleGenericExecutor : public SimpleExecutor {
 public:
-    vector<vector<unsigned **>> result_store;
-    vector<vector<int>> dist_base;
-    vector<vector<int *>> match_nums;
-    unsigned int** tmp_result_store;
+    unsigned *intersects; // intersection結果の格納場所
+    int scan_vl;
+    std::vector<std::pair<unsigned, int>> es;
 
-    using AlphaGenericJoin::AlphaGenericJoin;
-    BetaGenericJoin(bool b, vector<unsigned*> *stats) {
-        debug = b;
-        this->stats = stats;
-        this->executor_name = "BGJ";
+    SimpleGenericExecutor() {}
+    SimpleGenericExecutor(std::string &data_dirpath, std::string &query_filepath) {
+        executor_name = "generic";
+        std::cout << "=== Generic Executor ===" << std::endl;
+        g = new LabeledGraph(data_dirpath);
+        q = new Query(query_filepath);
+        order = get_plan(q, g, executor_name);
     }
 
-    void setup();
-    void recursive_join(int current_depth);
-    void find_assignables(int current_depth);
-    void find_assignables_v2(int current_depth);
-    void find_assignables_with_2hop(int current_depth);
+    void init();
+    void run(std::unordered_map<std::string, std::string> &options);
+    void join();
+    void factorize_join();
+    void join_with_lazy_update();
+
+    int intersect(unsigned x, unsigned y); // intersectionの要素数を返す
+    int intersect_for_factorize(unsigned *x_first, unsigned *x_last, unsigned y); // intersectionの要素数を返す
+    int intersect_lazy_update(unsigned x, unsigned y);
+    void summarize_result();
 };
 
 
-class GammaGenericJoin : public AlphaGenericJoin {
+class GenericExecutor : public Executor {
 public:
-    vector<vector<unsigned *>> result_store;
-    vector<vector<int>> dist_base;
-    vector<vector<unsigned *>> match_nums;
-    pair<unsigned*,unsigned*> indices[6];
-    unsigned deg;
+    int scan_vl;
+    std::vector<std::vector<std::pair<unsigned, int>>> plan;
+    std::vector<std::vector<unsigned *>> result_store;
+    std::vector<std::vector<int>> match_nums;
 
-    using AlphaGenericJoin::AlphaGenericJoin;
-    GammaGenericJoin(bool b, vector<unsigned*> *stats) {
-        debug = b;
-        this->stats = stats;
-        this->executor_name = "GGJ";
+    std::unordered_map<int,int> available_level;
+    std::unordered_map<int,std::vector<std::pair<int,int>>> cache_switch;
+    std::unordered_set<int> has_full_cache;
+
+    GenericExecutor() {}
+    GenericExecutor(std::string &data_dirpath, std::string &query_filepath) {
+        executor_name = "generic";
+        std::cout << "=== Generic Executor ===" << std::endl;
+        g = new LabeledGraph(data_dirpath);
+        q = new Query(query_filepath);
+        order = get_plan(q, g, executor_name);
     }
 
-    void setup();
-    void recursive_join(int current_depth);
-    void find_assignables(int current_depth);
+    void init();
+    void run(std::unordered_map<std::string, std::string> &options);
+    void join();
+    void cache_join();
+
+    void recursive_join(int depth);
+    void recursive_cache_join(int depth);
+    void find_assignables(int depth);
+    void summarize_result(std::unordered_map<std::string, std::string> &options);
+};
+
+
+class AggExecutor : public SimpleGenericExecutor {
+public:
+    int base_idx;
+
+    AggExecutor(std::string &data_dirpath, std::string &query_filepath) {
+        executor_name = "agg";
+        std::cout << "=== Aggregate Executor ===" << std::endl;
+        g = new LabeledAggGraph(data_dirpath);
+        q = new Query(query_filepath);
+        order = get_plan(q, g, executor_name);
+    }
+
+    void init();
+    void run(std::unordered_map<std::string, std::string> &options);
+    void join();
+    void hybrid_join();
+    int intersect_agg(unsigned x, unsigned y);
+};
+
+
+class ExecutorCaller {
+public:
+    static std::unique_ptr<Executor> call(std::string &method, std::string &data_dirpath, std::string &query_filepath) {
+        if (method == "generic") {
+            return std::make_unique<GenericExecutor>(data_dirpath, query_filepath);
+        }
+        // else if (method == "agg") {
+        //     return std::make_unique<AggExecutor>(data_dirpath, query_filepath);
+        // }
+        else {
+            std::cerr << "Error: Unknown method '" << method << "'\n";
+            exit(1); 
+        }
+    }
 };
 
 #endif

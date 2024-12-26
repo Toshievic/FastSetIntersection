@@ -1,27 +1,19 @@
-#ifndef QUERY_HPP
-#define QUERY_HPP
+#ifndef QUERY_NEW_HPP
+#define QUERY_NEW_HPP
 
-#include "master.hpp"
-
-#include <set>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 
 class Query {
-private:
-    bool debug;
-    unordered_map<string, int> val_index;
 public:
-    string query_name;
-    unordered_map<int,int> variables;
-    vector<vector<int>> triples;
+    std::string query_name;
+    std::unordered_map<int, int> vars;
+    std::vector<std::vector<int>> triples;
 
     Query() {}
-
-    void load(string file_path);
-    void info();
+    Query(std::string &query_filepath);
 };
-
-vector<Query> load_queries(string query_sets, bool debug);
 
 #endif

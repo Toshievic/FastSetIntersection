@@ -1,63 +1,48 @@
 #include "../include/query.hpp"
 #include "../include/util.hpp"
 
+#include <fstream>
+#include <sstream>
+#include <iostream>
 
-void Query::load(string file_path) {
-    query_name = split(split(file_path, '/').back(), '.')[0];
-    ifstream ifs_file(file_path);
-    vector<vector<string>> raw = read_table(ifs_file, ' ');
-    
-    int mode = 0;
+
+Query::Query(std::string &query_filepath) {
+    query_name = split(split(query_filepath, '/').back(), '.')[0];
+    std::ifstream fin(query_filepath);
+    if (!fin) {
+        std::cerr << "Cannot open file: " << query_filepath << std::endl;
+        exit(1);
+    }
+
+    std::string line_buf;
+    std::vector<std::string> word_buf;
+    std::vector<std::vector<std::string>> query_raw;
+    while (getline(fin, line_buf)) {
+        std::istringstream i_stream(line_buf);
+        word_buf = split(line_buf, ' ');
+        query_raw.push_back(word_buf);
+    }
+
+    int section = 0;
     int i = 0;
-    for (auto &tokens : raw) {
+    std::unordered_map<std::string, int> var_idx;
+    for (auto &tokens : query_raw) {
         if (tokens.size() == 0) {
-            mode++;
+            ++section;
             continue;
         }
-        switch (mode)
+        switch (section)
         {
             case 0: // val_type
-                val_index[tokens[0]] = i;
-                variables[i] = stoi(tokens[1]);
+                var_idx[tokens[0]] = i;
+                vars[i] = stoi(tokens[1]);
                 ++i;
                 break;
             case 1: // triple
-                triples.push_back({val_index[tokens[0]], stoi(tokens[1]), val_index[tokens[2]]});
+                triples.push_back({var_idx[tokens[0]], stoi(tokens[1]), var_idx[tokens[2]]});
                 break;
             default:
                 break;
         }
     }
-}
-
-
-void Query::info() {
-    cout << "Variables:" << endl;
-    print(variables);
-    cout << "Triples:" << endl;
-    print(triples);
-    cout << endl;
-}
-
-
-vector<Query> load_queries(string query_sets, bool debug) {
-    if (debug) { cout << "----------------- Loading Queries ----------------" << endl; }
-    string dir_path = find_path(query_sets, "query");
-    vector<string> query_files = get_file_paths(dir_path);
-
-    vector<Query> queries;
-    for (auto &query_file : query_files) {
-        Query query;
-        query.load(query_file);
-        queries.push_back(query);
-    }
-
-    if (debug) {
-        for (auto &query : queries) {
-            query.info();
-        }
-        cout << "----------------- Finish Loading! ----------------" << endl << endl;
-    }
-
-    return queries;
 }

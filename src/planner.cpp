@@ -1,4 +1,4 @@
-#include "../include/planner_new.hpp"
+#include "../include/planner.hpp"
 
 
 std::vector<int> get_plan(Query *q, LabeledGraph *g, std::string &executor_name) {

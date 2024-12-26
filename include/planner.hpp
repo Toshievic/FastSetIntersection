@@ -1,8 +1,8 @@
 #ifndef PLANNER_NEW_HPP
 #define PLANNER_NEW_HPP
 
-#include "labeled_graph_new.hpp"
-#include "query_new.hpp"
+#include "labeled_graph.hpp"
+#include "query.hpp"
 
 #include <vector>
 #include <string>
