@@ -37,6 +37,7 @@ public:
     std::map<std::string, int> graph_info; // 頂点ラベルの種類数等を格納
     std::vector<std::vector<unsigned>> for_scan; // 頂点idを頂点ラベルごとに分割
     std::vector<std::vector<unsigned>> adjlist; // キー: num_v * (num_vl * (dir * num_el + el) + dl) + si
+    std::vector<std::unordered_set<unsigned>> neighbors;
     std::vector<std::vector<unsigned>> hublist;
     std::vector<std::pair<unsigned, unsigned>> degree;
     std::map<unsigned, std::vector<unsigned>> *agg_al;
@@ -126,6 +127,7 @@ void Serializer::read_edges(std::string &edge_filepath) {
     size_t adjlist_size = 2 * graph_info["num_e_labels"] * graph_info["num_v_labels"] * graph_info["num_v"];
     adjlist.resize(adjlist_size);
     hublist.resize(adjlist_size);
+    neighbors.resize(adjlist_size);
 
     for (int i=0; i<table.size(); ++i) {
         unsigned src_id = table[i][0];
@@ -141,6 +143,8 @@ void Serializer::read_edges(std::string &edge_filepath) {
 
         adjlist[fwd_al_key].push_back(dst_id);
         adjlist[bwd_al_key].push_back(src_id);
+        neighbors[src_id].insert(dst_id);
+        neighbors[dst_id].insert(src_id);
     }
 
     Chrono_t end = get_time();
@@ -192,7 +196,7 @@ void Serializer::construct_agg_al(bool filtered, unsigned long long size_limit) 
                     unsigned key = num_v * (2 * num_v_labels * num_e_labels * i_inv + j) + u;
                     for (auto &w : adjlist[num_v*j+v]) {
                         // 2hop先の頂点が2hop元の頂点の隣接リストに含まれていなければフィルタリング
-                        if (filtered && std::find(adjlist[num_v*i_inv+u].begin(), adjlist[num_v*i_inv+u].end(), w) == adjlist[num_v*i_inv+u].end()) {
+                        if (filtered && !neighbors[u].contains(w)) {
                             continue;
                         }
                         if (!agg_al[key].contains(w)) {

@@ -2,8 +2,8 @@
 
 # srcファイルのパス
 SRC_DIR = src
-SRC_FILES_EXE = main.cpp $(SRC_DIR)/util.cpp $(SRC_DIR)/labeled_graph.cpp $(SRC_DIR)/query.cpp $(SRC_DIR)/planner.cpp $(SRC_DIR)/generic_executor.cpp # 問合せ処理用
-SRC_FILES_SER = serialize.cpp $(SRC_DIR)/util_new.cpp # データシリアライズ用
+SRC_FILES_EXE = main.cpp $(SRC_DIR)/util.cpp $(SRC_DIR)/labeled_graph.cpp $(SRC_DIR)/query.cpp $(SRC_DIR)/planner.cpp $(SRC_DIR)/generic_executor.cpp $(SRC_DIR)/agg_executor.cpp # 問合せ処理用
+SRC_FILES_SER = serialize.cpp $(SRC_DIR)/util.cpp # データシリアライズ用
 
 # 出力ディレクトリと実行ファイル名
 OBJ_DIR = obj
