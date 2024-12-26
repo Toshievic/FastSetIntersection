@@ -123,13 +123,13 @@ public:
 
 class ExecutorCaller {
 public:
-    static std::unique_ptr<SimpleExecutor> call(std::string &method, std::string &data_dirpath, std::string &query_filepath) {
+    static std::unique_ptr<Executor> call(std::string &method, std::string &data_dirpath, std::string &query_filepath) {
         if (method == "generic") {
-            return std::make_unique<SimpleGenericExecutor>(data_dirpath, query_filepath);
+            return std::make_unique<GenericExecutor>(data_dirpath, query_filepath);
         }
-        else if (method == "agg") {
-            return std::make_unique<AggExecutor>(data_dirpath, query_filepath);
-        }
+        // else if (method == "agg") {
+        //     return std::make_unique<AggExecutor>(data_dirpath, query_filepath);
+        // }
         else {
             std::cerr << "Error: Unknown method '" << method << "'\n";
             exit(1); 
