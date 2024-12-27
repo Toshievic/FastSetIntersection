@@ -102,6 +102,9 @@ void AggExecutor::init() {
             }
         }
     }
+
+    result_size = 0;
+    intersection_count = 0;
 }
 
 
