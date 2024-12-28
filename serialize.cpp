@@ -188,23 +188,26 @@ void Serializer::construct_agg_al(bool filtered, unsigned long long size_limit) 
         // 残っている中で最も次数が小さい頂点を取り出す
         auto [v, deg] = degree[idx];
         // vの隣接リストを参照してvを経由する全ての2-pathをindexに追加
-        for (int i=0; i<2*num_v_labels*num_e_labels; ++i) {
-            // dirの部分を逆方向にする計算
-            int i_inv = i<num_v_labels*num_e_labels ? i+num_v_labels*num_e_labels : i-num_v_labels*num_e_labels;
-            for (auto &u : adjlist[num_v*i+v]) {
-                for (int j=0; j<2*num_v_labels*num_e_labels; ++j) {
-                    unsigned key = num_v * (2 * num_v_labels * num_e_labels * i_inv + j) + u;
-                    for (auto &w : adjlist[num_v*j+v]) {
-                        // 2hop先の頂点が2hop元の頂点の隣接リストに含まれていなければフィルタリング
-                        if (filtered && !neighbors[u].contains(w)) {
-                            continue;
+        for (int dir=0; dir<2; ++dir) {
+            for (int el=0; el<num_e_labels; ++el) {
+                for (int dl=0; dl<num_v_labels; ++dl) {
+                    int i = num_v_labels * (num_e_labels * !dir + el);
+                    for (auto &u : adjlist[num_v*i+v]) {
+                        for (int j=0; j<2*num_v_labels*num_e_labels; ++j) {
+                            unsigned key = num_v * (2 * num_v_labels * num_e_labels * (i + vertices[u]) + j) + u;
+                            for (auto &w : adjlist[num_v*j+v]) {
+                                // 2hop先の頂点が2hop元の頂点の隣接リストに含まれていなければフィルタリング
+                                if (filtered && !neighbors[u].contains(w)) {
+                                    continue;
+                                }
+                                if (!agg_al[key].contains(w)) {
+                                    agg_al[key].insert(std::map<unsigned, std::vector<unsigned>>::value_type (w, {}));
+                                    ++num_2hops;
+                                }
+                                agg_al[key][w].push_back(v);
+                                ++num_2paths;
+                            }
                         }
-                        if (!agg_al[key].contains(w)) {
-                            agg_al[key].insert(std::map<unsigned, std::vector<unsigned>>::value_type (w, {}));
-                            ++num_2hops;
-                        }
-                        agg_al[key][w].push_back(v);
-                        ++num_2paths;
                     }
                 }
             }
