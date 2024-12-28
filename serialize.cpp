@@ -193,7 +193,7 @@ void Serializer::construct_agg_al(bool filtered, unsigned long long size_limit) 
             int i_inv = i<num_v_labels*num_e_labels ? i+num_v_labels*num_e_labels : i-num_v_labels*num_e_labels;
             for (auto &u : adjlist[num_v*i+v]) {
                 for (int j=0; j<2*num_v_labels*num_e_labels; ++j) {
-                    unsigned key = num_v * (2 * num_v_labels * num_e_labels * i_inv + j) + u;
+                    unsigned key = num_v * (2 * num_v_labels * num_e_labels * (2 * num_v_labels * num_e_labels * i_inv) + j) + u;
                     for (auto &w : adjlist[num_v*j+v]) {
                         // 2hop先の頂点が2hop元の頂点の隣接リストに含まれていなければフィルタリング
                         if (filtered && !neighbors[u].contains(w)) {

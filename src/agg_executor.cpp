@@ -27,7 +27,6 @@ void AggExecutor::init() {
             sl = dl; dl = tmp;
             is_bwd = true;
         }
-        // unsigned key = g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * g->graph_info["num_e_labels"] + el) + dl);
         tmp_plan[order_inv[dst]-1].push_back({is_bwd, el, dl, src});
     }
 
@@ -75,8 +74,7 @@ void AggExecutor::init() {
                 auto [is_bwd1, el1, dl1, src1] = tmp_plan[idx][j];
                 auto [is_bwd0, el0, dl0, src] = tmp_plan[order_inv[src1]-1][0];
                 agg_plan[i][itr] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * (
-                    g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * is_bwd0 + el0) + dl0) + is_bwd1) + el1) + dl1),
-                    src};
+                    g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * is_bwd0 + el0) + dl0) + is_bwd1) + el1) + dl1), src};
                 ++itr;
             }
         }
