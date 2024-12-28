@@ -192,7 +192,7 @@ void Serializer::construct_agg_al(bool filtered, unsigned long long size_limit) 
             for (int el=0; el<num_e_labels; ++el) {
                 for (int dl=0; dl<num_v_labels; ++dl) {
                     int i = num_v_labels * (num_e_labels * !dir + el);
-                    for (auto &u : adjlist[num_v*i+v]) {
+                    for (auto &u : adjlist[num_v*(num_v_labels*(num_e_labels*dir+el)+dl)+v]) {
                         for (int j=0; j<2*num_v_labels*num_e_labels; ++j) {
                             unsigned key = num_v * (2 * num_v_labels * num_e_labels * (i + vertices[v]) + j) + u;
                             for (auto &w : adjlist[num_v*j+v]) {
