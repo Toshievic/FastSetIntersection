@@ -30,18 +30,14 @@ void AggExecutor::init() {
         tmp_plan[order_inv[dst]-1].push_back({is_bwd, el, dl, src});
     }
 
-    general_plan.resize(tmp_plan.size());
     // general planを集約隣接リストを用いたplanに置き換え
     std::unordered_map<int,int> replaced;
     std::vector<int> tmp_agg_order;
     std::vector<std::vector<int>> tmp_agg_detail(tmp_plan.size());
     for (int i=0; i<tmp_plan.size(); ++i) { // i ... 2-hop先頂点
         tmp_agg_order.push_back(order[i+1]);
-        general_plan[i].resize(tmp_plan[i].size());
         for (int j=0; j<tmp_plan[i].size(); ++j) {
             auto [is_bwd, el, dl, src] = tmp_plan[i][j]; // src ... 経由頂点
-            general_plan[i][j] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * 
-                g->graph_info["num_e_labels"] + el) + dl), src};
             if (tmp_plan[i].size() > 1) {
                 if (order_inv[src] != 0 && tmp_plan[order_inv[src]-1].size() < 2 && !replaced.contains(src)) {
                     replaced[src] = order[i+1];
@@ -51,26 +47,40 @@ void AggExecutor::init() {
             }
         }
     }
+    general_plan.resize(tmp_agg_order.size());
     agg_order.resize(tmp_agg_order.size());
     agg_plan.resize(tmp_agg_order.size());
     agg_detail.resize(tmp_agg_order.size());
     for (int i=0; i<tmp_agg_order.size(); ++i) {
         agg_order[i] = tmp_agg_order[i];
         int idx = order_inv[agg_order[i]]-1;
-        agg_plan[i].resize(general_plan[idx].size());
-        agg_detail[i].resize(tmp_agg_detail[idx].size());
-        for (int j=0; j<tmp_agg_detail[idx].size(); ++j) {
+        int lev_size = tmp_agg_detail[idx].size();
+        general_plan[i].resize(lev_size+1);
+        agg_plan[i].resize(tmp_plan[idx].size());
+        agg_detail[i].resize(lev_size);
+        for (int j=0; j<lev_size; ++j) {
             agg_detail[i][j] = tmp_agg_detail[idx][j];
+            int depth = order[agg_detail[i][j]];
+            general_plan[i][j].resize(tmp_plan[depth].size());
+            for (int k=0; k<tmp_plan[depth].size(); ++k) {
+                auto [is_bwd, el, dl, src] = tmp_plan[depth][k];
+                general_plan[i][j][k] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * 
+                    g->graph_info["num_e_labels"] + el) + dl), src};
+            }
         }
+        general_plan[i][agg_detail[i].size()].resize(lev_size);
         int itr = 0;
-        for (int j=0; j<general_plan[idx].size(); ++j) {
-            if (!replaced.contains(general_plan[idx][j].second) || replaced[general_plan[idx][j].second] != agg_order[i]) {
-                agg_plan[i][itr] = general_plan[idx][j];
+        for (int j=0; j<tmp_plan[idx].size(); ++j) {
+            auto [is_bwd, el, dl, src] = tmp_plan[idx][j];
+            general_plan[i][lev_size][j] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * 
+                    g->graph_info["num_e_labels"] + el) + dl), src};
+            if (!replaced.contains(general_plan[i][lev_size][j].second) || replaced[general_plan[i][lev_size][j].second] != agg_order[i]) {
+                agg_plan[i][itr] = general_plan[i][lev_size][j];
                 ++itr;
             }
         }
         for (int j=0; j<general_plan[idx].size(); ++j) {
-            if (replaced.contains(general_plan[idx][j].second) && replaced[general_plan[idx][j].second] == agg_order[i]) {
+            if (replaced.contains(general_plan[i][lev_size][j].second) && replaced[general_plan[i][lev_size][j].second] == agg_order[i]) {
                 auto [is_bwd1, el1, dl1, src1] = tmp_plan[idx][j];
                 auto [is_bwd0, el0, dl0, src] = tmp_plan[order_inv[src1]-1][0];
                 agg_plan[i][itr] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (g->graph_info["num_e_labels"] * (2 * (
@@ -84,6 +94,7 @@ void AggExecutor::init() {
     match_nums.resize(agg_plan.size());
     ptr_store.resize(agg_plan.size());
     for (int i=0; i<agg_plan.size(); ++i) {
+        if (general_plan[i].size() == 1) { general_plan[i].clear(); }
         intersect_store[i].resize(agg_plan[i].size());
         match_nums[i].resize(agg_plan[i].size());
         ptr_store[i].resize(agg_plan[i].size());
@@ -108,7 +119,12 @@ void AggExecutor::init() {
 
 void AggExecutor::run(std::unordered_map<std::string, std::string> &options) {
     Chrono_t start = get_time();
-    join();
+    if (options.contains("cache") && options["cache"]=="on") {
+        cache_join();
+    }
+    else {
+        join();
+    }
     Chrono_t end = get_time();
     time_stats["join_runtime"] = get_runtime(&start, &end);
     summarize_result(options);
@@ -236,6 +252,63 @@ void AggExecutor::recursive_join(int depth) {
             }
         }
         else {
+            if (depth == agg_order.size()-1) { ++result_size; }
+            else { recursive_join(depth+1); }
+        }
+    }
+
+    recursive_hub_join(depth, 0);
+}
+
+
+void AggExecutor::recursive_hub_join(int depth, int inner_depth) {
+    if (inner_depth == general_plan[depth].size()) {
+        return;
+    }
+    int intersects = general_plan[depth][inner_depth].size();
+    auto [key, src] = general_plan[depth][inner_depth][0];
+    unsigned idx = key + assignment[src];
+    unsigned *first = g->al_hub_crs + g->al_hub_keys[idx];
+    unsigned *last = g->al_hub_crs + g->al_hub_keys[idx+1];
+    if (inner_depth < general_plan[depth].size() - 1) {
+        while (first != last) {
+            assignment[src] = *first;
+            recursive_hub_join(depth, inner_depth+1);
+        }
+    }
+    else {
+        match_nums[depth][0] = last - first;
+        std::memcpy(intersect_store[depth][0], first, sizeof(unsigned)*(last-first));
+        for (int i=1; i<general_plan[depth][inner_depth].size(); ++i) {
+            ++intersection_count;
+            unsigned *x_first = intersect_store[depth][i-1];
+            unsigned *x_last = intersect_store[depth][i-1] + match_nums[depth][i-1];
+            unsigned y_idx = agg_plan[depth][i].first + assignment[agg_plan[depth][i].second];
+            unsigned *y_first = g->al_crs + g->al_keys[y_idx];
+            unsigned *y_last = g->al_crs + g->al_keys[y_idx+1];
+
+            int match_num = 0;
+            while (x_first != x_last && y_first != y_last) {
+                if (*x_first < *y_first) {
+                    ++x_first;
+                }
+                else if (*x_first > *y_first) {
+                    ++y_first;
+                }
+                else {
+                    intersect_store[depth][i][match_num] = *x_first;
+                    ++match_num;
+                    ++x_first;
+                    ++y_first;
+                }
+            }
+            match_nums[depth][i] = match_num;
+        }
+
+        unsigned *intersect = intersect_store[depth][intersects-1];
+        int match_num = match_nums[depth][intersects-1];
+        for (int i=0; i<match_num; ++i) {
+            assignment[agg_order[depth]] = intersect[i];
             if (depth == agg_order.size()-1) { ++result_size; }
             else { recursive_join(depth+1); }
         }
