@@ -83,6 +83,7 @@ public:
     void join();
     // void cache_join();
 
+    void recursive_agg_join(int depth, int stage, std::vector<int> &use_agg);
     void recursive_join(int depth);
     void recursive_hub_join(int depth, int inner_depth);
     // void find_assignables(int depth);
