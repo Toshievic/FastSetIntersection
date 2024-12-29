@@ -63,9 +63,9 @@ class AggExecutor : public GenericExecutor {
 private:
     int v_first; // scanする頂点の番号
     std::vector<std::vector<std::vector<std::pair<unsigned, int>>>> general_plan;
-    std::vector<int> agg_order;
+    std::vector<int> agg_order, general_order; // 経由頂点入替を考慮して集約側が参照するorderとhub側が参照するorderを分けて作る
     std::vector<std::vector<std::pair<unsigned, int>>> agg_plan;
-    std::vector<std::vector<int>> agg_detail; // 経由頂点を保持
+    std::vector<std::vector<int>> agg_detail, general_detail; // 経由頂点を保持
 
     std::vector<std::vector<unsigned *>> intersect_store;
     std::vector<std::vector<std::vector<unsigned *>>> ptr_store; // 経由頂点用
@@ -84,8 +84,6 @@ public:
     // void cache_join();
 
     void recursive_agg_join(int depth, int stage, std::vector<int> &use_agg);
-    void recursive_join(int depth);
-    void recursive_hub_join(int depth, int inner_depth);
     // void find_assignables(int depth);
 };
 
