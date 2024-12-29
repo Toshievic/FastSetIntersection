@@ -75,7 +75,7 @@ void AggExecutor::init() {
             if (!replaced.contains(src) || replaced[src] != agg_order[i]) {
                 general_plan[i][lev_size][itr] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * 
                     g->graph_info["num_e_labels"] + el) + dl), src};
-                agg_plan[i][itr] = general_plan[i][lev_size][j];
+                agg_plan[i][itr] = general_plan[i][lev_size][itr];
                 ++itr;
             }
         }
