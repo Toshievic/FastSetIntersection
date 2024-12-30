@@ -1,6 +1,7 @@
 #include "../include/executor.hpp"
 
 #include <cstring>
+#include <algorithm>
 
 
 void AggExecutor::init() {
@@ -73,14 +74,17 @@ void AggExecutor::init() {
     std::vector<std::vector<std::tuple<int,int,int,int>>> changed_plan(order.size()-1);
     std::unordered_map<int,int> changed_order_inv;
     std::vector<int> assign_order(order.size()); // キャッシュ用のorder, 集約隣接リストの使用による割り当て順序の逆転を考慮
+    std::unordered_map<int,int> assign_order_inv;
     int _itr = 0;
     for (int i=0; i<changed_order.size(); i++) {
         changed_order_inv[changed_order[i]] = i;
         if (!replaced.contains(changed_order[i])) {
             assign_order[_itr] = changed_order[i];
+            assign_order_inv[changed_order[i]] = _itr;
             ++_itr;
             for (int j=0; j<replaced_inv[changed_order[i]].size(); ++j) {
                 assign_order[_itr] = replaced_inv[changed_order[i]][j];
+                assign_order_inv[replaced_inv[changed_order[i]][j]] = _itr;
                 ++_itr;
             }
         }
@@ -208,6 +212,11 @@ void AggExecutor::init() {
     cache_set.resize(agg_plan.size(), 0);
     for (int i=0; i<agg_plan.size(); ++i) {
         for (int j=0; j<agg_plan[i].size(); ++j) {
+            // agg_plan[i]内をキャッシュが効率的に使えるようにソート
+            std::sort(agg_plan[i].begin(), agg_plan[i].begin()+agg_plan[i].size()-agg_detail[i].size(),
+            [&assign_order_inv](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                return assign_order_inv[a.second] < assign_order_inv[b.second];
+            });
             int src = agg_plan[i][j].second;
             int src_order = std::distance(assign_order.begin(), std::find(assign_order.begin(), assign_order.end(), src));
             int dst_order = std::distance(assign_order.begin(), std::find(assign_order.begin(), assign_order.end(), agg_order[i]));
