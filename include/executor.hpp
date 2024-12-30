@@ -29,14 +29,13 @@ public:
 class GenericExecutor : public Executor {
 private:
     std::vector<std::vector<std::pair<unsigned, int>>> plan;
+    std::unordered_map<int,int> available_level;
+    std::unordered_map<int,std::vector<std::pair<int,int>>> cache_switch;
+    std::unordered_set<int> has_full_cache;
 public:
     int scan_vl;
     std::vector<std::vector<int>> match_nums;
     std::vector<std::vector<unsigned *>> result_store;
-
-    std::unordered_map<int,int> available_level;
-    std::unordered_map<int,std::vector<std::pair<int,int>>> cache_switch;
-    std::unordered_set<int> has_full_cache;
 
     GenericExecutor() {}
     GenericExecutor(std::string &data_dirpath, std::string &query_filepath) {
@@ -69,6 +68,10 @@ private:
 
     std::vector<std::vector<unsigned *>> intersect_store;
     std::vector<std::vector<std::vector<unsigned *>>> ptr_store; // 経由頂点用
+
+    std::vector<std::vector<std::pair<int,int>>> cache_reset; // 割り当て更新の際にどのdepthのキャッシュをどのステージまで戻すか
+    std::vector<int> start_from; // 次のdepthのintersectionをどのstageから始めるか
+    std::vector<int> cache_set; // あるdepthの処理を終了した際にそのdepthのキャッシュをどのステージまで進めるか
 public:
     AggExecutor(std::string &data_dirpath, std::string &query_filepath) {
         executor_name = "agg";
@@ -81,10 +84,10 @@ public:
     void init();
     void run(std::unordered_map<std::string, std::string> &options);
     void join();
-    // void cache_join();
+    void cache_join();
 
     void recursive_agg_join(int depth, int stage, std::vector<int> &use_agg);
-    // void find_assignables(int depth);
+    void recursive_agg_cache_join(int depth, int stage, std::vector<int> &use_agg);
 };
 
 
