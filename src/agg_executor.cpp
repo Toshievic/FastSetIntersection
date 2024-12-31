@@ -58,10 +58,14 @@ void AggExecutor::init() {
                         replaced_inv[src].push_back(order[i+1]);
                         changed_order[i+1] = src;
                         changed_order[order_inv[src]] = order[i+1];
+                        replaced_original[order[i+1]] = src;
+                        replaced_inv_original[src].push_back(order[i+1]);
                     }
                     else { // この場合はsrcが経由, order[i+1]が2-hop先
                         replaced[src] = order[i+1];
                         replaced_inv[order[i+1]].push_back(src);
+                        replaced_original[src] = order[i+1];
+                        replaced_inv_original[order[i+1]].push_back(src);
                     }
                     replaced_original[src] = order[i+1];
                     replaced_inv_original[order[i+1]].push_back(src);
