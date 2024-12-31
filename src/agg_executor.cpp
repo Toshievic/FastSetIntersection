@@ -117,37 +117,37 @@ void AggExecutor::init() {
     agg_plan.resize(tmp_plan.size()-replaced.size());
     int itr_g = 0; int itr_a = 0;
     for (int i=0; i<order.size()-1; ++i) {
-        if (!replaced_original.contains(order[i+1])) {
-            general_order[itr_g] = order[i+1];
-            general_detail[itr_g].resize(replaced_inv_original[order[i+1]].size());
-            general_detail[itr_g].assign(replaced_inv_original[order[i+1]].begin(), replaced_inv_original[order[i+1]].end());
-            general_plan[itr_g].resize(replaced_inv_original[order[i+1]].size()+1);
-            for (int j=0; j<replaced_inv_original[order[i+1]].size(); ++j) {
-                int via = replaced_inv_original[order[i+1]][j];
-                general_plan[itr_g][j].resize(tmp_plan[order_inv[via]-1].size());
-                for (int k=0; k<tmp_plan[order_inv[via]-1].size(); ++k) {
-                    auto [is_bwd, el, dl, src] = tmp_plan[order_inv[via]-1][k];
+        if (!replaced_original.contains(changed_order[i+1])) {
+            general_order[itr_g] = changed_order[i+1];
+            general_detail[itr_g].resize(replaced_inv_original[changed_order[i+1]].size());
+            general_detail[itr_g].assign(replaced_inv_original[changed_order[i+1]].begin(), replaced_inv_original[changed_order[i+1]].end());
+            general_plan[itr_g].resize(replaced_inv_original[changed_order[i+1]].size()+1);
+            for (int j=0; j<replaced_inv_original[changed_order[i+1]].size(); ++j) {
+                int via = replaced_inv_original[changed_order[i+1]][j];
+                general_plan[itr_g][j].resize(changed_plan[changed_order_inv[via]-1].size());
+                for (int k=0; k<changed_plan[changed_order_inv[via]-1].size(); ++k) {
+                    auto [is_bwd, el, dl, src] = changed_plan[changed_order_inv[via]-1][k];
                     general_plan[itr_g][j][k] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * 
                         g->graph_info["num_e_labels"] + el) + dl), src};
                 }
             }
             // 集約隣接リストを使用しないものから先にplanへ入れる
-            int j = replaced_inv_original[order[i+1]].size();
+            int j = replaced_inv_original[changed_order[i+1]].size();
             int itr = 0;
-            general_plan[itr_g][j].resize(tmp_plan[i].size());
-            for (int k=0; k<tmp_plan[i].size(); ++k) {
-                auto [is_bwd, el, dl, src] = tmp_plan[i][k];
-                if (std::find(replaced_inv_original[order[i+1]].begin(), replaced_inv_original[order[i+1]].end(), src) ==
-                replaced_inv_original[order[i+1]].end()) {
+            general_plan[itr_g][j].resize(changed_plan[i].size());
+            for (int k=0; k<changed_plan[i].size(); ++k) {
+                auto [is_bwd, el, dl, src] = changed_plan[i][k];
+                if (std::find(replaced_inv_original[changed_order[i+1]].begin(), replaced_inv_original[changed_order[i+1]].end(), src) ==
+                replaced_inv_original[changed_order[i+1]].end()) {
                     general_plan[itr_g][j][itr] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * 
                         g->graph_info["num_e_labels"] + el) + dl), src};
                     ++itr;
                 }
             }
             for (int k=0; k<tmp_plan[i].size(); ++k) {
-                auto [is_bwd, el, dl, src] = tmp_plan[i][k];
-                if (std::find(replaced_inv_original[order[i+1]].begin(), replaced_inv_original[order[i+1]].end(), src) !=
-                replaced_inv_original[order[i+1]].end()) {
+                auto [is_bwd, el, dl, src] = changed_plan[i][k];
+                if (std::find(replaced_inv_original[changed_order[i+1]].begin(), replaced_inv_original[changed_order[i+1]].end(), src) !=
+                replaced_inv_original[changed_order[i+1]].end()) {
                     general_plan[itr_g][j][itr] = {g->graph_info["num_v"] * (g->graph_info["num_v_labels"] * (is_bwd * 
                         g->graph_info["num_e_labels"] + el) + dl), src};
                     ++itr;
