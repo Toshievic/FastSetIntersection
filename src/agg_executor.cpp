@@ -50,7 +50,7 @@ void AggExecutor::init() {
                         for (int l=0; l<tmp_plan[k].size(); ++l) {
                             auto [_is_bwd, _el, _dl, _src] = tmp_plan[k][l];
                             // 経由頂点が以降のintersectionで用いられるならば
-                            if (src == _src) { should_change = true; }
+                            // if (src == _src) { should_change = true; }
                         }
                     }
                     if (should_change) { // この場合はorder[i+1]が経由, srcが2-hop先
