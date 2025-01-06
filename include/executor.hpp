@@ -70,8 +70,10 @@ private:
     std::vector<std::vector<std::vector<unsigned *>>> ptr_store; // 経由頂点用
 
     std::vector<std::vector<std::pair<int,int>>> cache_reset; // 割り当て更新の際にどのdepthのキャッシュをどのステージまで戻すか
+    std::vector<std::vector<std::pair<int,int>>> cache_reset_hub;
     std::vector<int> start_from; // 次のdepthのintersectionをどのstageから始めるか
     std::vector<int> cache_set; // あるdepthの処理を終了した際にそのdepthのキャッシュをどのステージまで進めるか
+    std::vector<int> cache_set_hub;
 public:
     AggExecutor(std::string &data_dirpath, std::string &query_filepath) {
         executor_name = "agg";
@@ -87,7 +89,7 @@ public:
     void cache_join();
 
     void recursive_agg_join(int depth, int stage, std::vector<int> &use_agg);
-    void recursive_agg_cache_join(int depth, int stage, std::vector<int> &use_agg);
+    void recursive_agg_cache_join(int depth, int stage, std::vector<int> &use_agg, bool hub);
 };
 
 

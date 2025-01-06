@@ -190,7 +190,6 @@ void AggExecutor::init() {
     match_nums.resize(agg_plan.size());
     ptr_store.resize(agg_plan.size());
     for (int i=0; i<agg_plan.size(); ++i) {
-        if (general_plan[i].size() == 1) { general_plan[i].clear(); }
         intersect_store[i].resize(agg_plan[i].size());
         match_nums[i].resize(agg_plan[i].size());
         ptr_store[i].resize(agg_plan[i].size());
@@ -210,21 +209,33 @@ void AggExecutor::init() {
 
     // cache setup
     cache_reset.resize(order.size());
+    cache_reset_hub.resize(order.size());
     start_from.resize(agg_plan.size(), 0);
     cache_set.resize(agg_plan.size(), 0);
+    cache_set_hub.resize(agg_plan.size(), 0);
     for (int i=0; i<agg_plan.size(); ++i) {
         for (int j=0; j<agg_plan[i].size(); ++j) {
             // agg_plan[i]内をキャッシュが効率的に使えるようにソート
             std::sort(agg_plan[i].begin(), agg_plan[i].begin()+agg_plan[i].size()-agg_detail[i].size(),
-            [&order_inv](const std::pair<int, int>& a, const std::pair<int, int>& b) {
-                return order_inv[a.second] < order_inv[b.second];
+            [&assign_order_inv](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                return assign_order_inv[a.second] < assign_order_inv[b.second];
             });
             int src = agg_plan[i][j].second;
-            int src_order = std::distance(order.begin(), std::find(order.begin(), order.end(), src));
-            int dst_order = std::distance(order.begin(), std::find(order.begin(), order.end(), agg_order[i]));
+            int src_order = std::distance(assign_order.begin(), std::find(assign_order.begin(), assign_order.end(), src));
+            int dst_order = std::distance(assign_order.begin(), std::find(assign_order.begin(), assign_order.end(), agg_order[i]));
             if (dst_order - src_order > 1) {
                 cache_set[i] = j+1;
                 cache_reset[src].push_back({i,j});
+            }
+        }
+        if (general_plan[i].size() > 1) { continue; }
+        for (int j=0; j<general_plan[i][0].size(); ++j) {
+            int src = general_plan[i][0][j].second;
+            int src_order = std::distance(order.begin(), std::find(order.begin(), order.end(), src));
+            int dst_order = std::distance(order.begin(), std::find(order.begin(), order.end(), general_order[i]));
+            if (dst_order - src_order > 1) {
+                cache_set_hub[i] = j+1;
+                cache_reset_hub[src].push_back({i,j});
             }
         }
     }
@@ -272,7 +283,7 @@ void AggExecutor::cache_join() {
         for (int j=0; j<cache_reset[v_first].size(); ++j) {
             start_from[cache_reset[v_first][j].first] = cache_reset[v_first][j].second;
         }
-        recursive_agg_cache_join(0, start_from[0], vec);
+        recursive_agg_cache_join(0, start_from[0], vec, false);
     }
     exec_stats["intersection_count"] = intersection_count;
     exec_stats["result_size"] = result_size;
@@ -570,7 +581,7 @@ void AggExecutor::recursive_agg_join(int depth, int stage, std::vector<int> &use
 }
 
 
-void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int> &use_agg) {
+void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int> &use_agg, bool hub) {
     // キャッシュによりこのdepthの計算をしなくて良い場合
     if (stage == agg_plan[depth].size()) {
         // 集約隣接リストを使用していないと仮定したコードになっているため, 修正が必要な場合あり
@@ -582,11 +593,11 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                 auto [d, l] = cache_reset[agg_order[depth]][x];
                 start_from[d] = std::min(start_from[d], l);
             }
-            start_from[depth] = cache_set[depth];
+            start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
             if (depth == agg_plan.size() - 1) { ++result_size; }
             else {
                 std::vector<int> new_vec;
-                recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
             }
         }
         return;
@@ -608,16 +619,16 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                         auto [d, l] = cache_reset[agg_order[depth]][x];
                         start_from[d] = std::min(start_from[d], l);
                     }
-                    start_from[depth] = cache_set[depth];
+                    start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                     if (depth == agg_plan.size() - 1) { ++result_size; }
                     else {
                         std::vector<int> new_vec;
-                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                     }
                     ++first;
                 }
             }
-            else { recursive_agg_cache_join(depth, stage+1, use_agg); }
+            else { recursive_agg_cache_join(depth, stage+1, use_agg, hub); }
         }
         else {
             // intersectionを行うモード
@@ -666,35 +677,35 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                                         auto [d, l] = cache_reset[agg_detail[depth][1]][x];
                                         start_from[d] = std::min(start_from[d], l);
                                     }
-                                    start_from[depth] = cache_set[depth];
+                                    start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                                     if (depth == agg_order.size()-1) { ++result_size; }
                                     else {
                                         std::vector<int> new_vec;
-                                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                                     }
                                 }
                             }
                             else {
-                                start_from[depth] = cache_set[depth];
+                                start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                                 if (depth == agg_order.size()-1) { ++result_size; }
                                 else {
                                     std::vector<int> new_vec;
-                                    recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                                    recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                                 }
                             }
                         }
                     }
                     else {
-                        start_from[depth] = cache_set[depth];
+                        start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                         if (depth == agg_order.size()-1) { ++result_size; }
                         else {
                             std::vector<int> new_vec;
-                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                         }
                     }
                 }
             }
-            else { recursive_agg_cache_join(depth, stage+1, use_agg); }
+            else { recursive_agg_cache_join(depth, stage+1, use_agg, hub); }
         }
     }
     else {
@@ -727,11 +738,11 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                             auto [d, l] = cache_reset[agg_detail[depth][0]][x];
                             start_from[d] = std::min(start_from[d], l);
                         }
-                        start_from[depth] = cache_set[depth];
+                        start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                         if (depth == agg_order.size()-1) { ++result_size; }
                         else {
                             std::vector<int> new_vec;
-                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                         }
                     }
                 }
@@ -741,11 +752,11 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                         auto [d, l] = cache_reset[agg_order[depth]][x];
                         start_from[d] = std::min(start_from[d], l);
                     }
-                    start_from[depth] = cache_set[depth];
+                    start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                     if (depth == agg_plan.size() - 1) { ++result_size; }
                     else {
                         std::vector<int> new_vec;
-                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                     }
                     ++agg_first;
                 }
@@ -753,7 +764,7 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
             else {
                 std::vector<int> new_use_agg = use_agg;
                 new_use_agg.push_back(hub_id);
-                recursive_agg_cache_join(depth, stage+1, new_use_agg);
+                recursive_agg_cache_join(depth, stage+1, new_use_agg, hub);
             }
             // hubの場合は2段ジャンプ
             while (hub_first != hub_last) {
@@ -775,16 +786,16 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                             auto [d, l] = cache_reset[general_order[depth]][x];
                             start_from[d] = std::min(start_from[d], l);
                         }
-                        start_from[depth] = cache_set[depth];
+                        start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                         if (depth == general_plan.size() - 1) { ++result_size; }
                         else {
                             std::vector<int> new_vec;
-                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, true);
                         }
                         ++first;
                     }
                 }
-                else { recursive_agg_cache_join(depth, stage+1, use_agg); }
+                else { recursive_agg_cache_join(depth, stage+1, use_agg, hub); }
                 ++hub_first;
             }
         }
@@ -838,35 +849,35 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                                         auto [d, l] = cache_reset[agg_detail[depth][1]][x];
                                         start_from[d] = std::min(start_from[d], l);
                                     }
-                                    start_from[depth] = cache_set[depth];
+                                    start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                                     if (depth == agg_order.size()-1) { ++result_size; }
                                     else {
                                         std::vector<int> new_vec;
-                                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                                     }
                                 }
                             }
                             else {
-                                start_from[depth] = cache_set[depth];
+                                start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                                 if (depth == agg_order.size()-1) { ++result_size; }
                                 else {
                                     std::vector<int> new_vec;
-                                    recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                                    recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                                 }
                             }
                         }
                     }
                     else {
-                        start_from[depth] = cache_set[depth];
+                        start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                         if (depth == agg_order.size()-1) { ++result_size; }
                         else {
                             std::vector<int> new_vec;
-                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, false);
                         }
                     }
                 }
             }
-            else { recursive_agg_cache_join(depth, stage+1, new_use_agg); }
+            else { recursive_agg_cache_join(depth, stage+1, new_use_agg, hub); }
 
             // hub
             while (hub_first != hub_last) {
@@ -923,35 +934,35 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                                             auto [d, l] = cache_reset[general_detail[depth][1]][x];
                                             start_from[d] = std::min(start_from[d], l);
                                         }
-                                        start_from[depth] = cache_set[depth];
+                                        start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                                         if (depth == general_order.size()-1) { ++result_size; }
                                         else {
                                             std::vector<int> new_vec;
-                                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                                            recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, true);
                                         }
                                     }
                                 }
                                 else {
-                                    start_from[depth] = cache_set[depth];
+                                    start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                                     if (depth == general_order.size()-1) { ++result_size; }
                                     else {
                                         std::vector<int> new_vec;
-                                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                                        recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, true);
                                     }
                                 }
                             }
                         }
                         else {
-                            start_from[depth] = cache_set[depth];
+                            start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
                             if (depth == general_order.size()-1) { ++result_size; }
                             else {
                                 std::vector<int> new_vec;
-                                recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
+                                recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec, true);
                             }
                         }
                     }
                 }
-                else { recursive_agg_cache_join(depth, stage+1, use_agg); }
+                else { recursive_agg_cache_join(depth, stage+1, use_agg, hub); }
                 ++hub_first;
             }
         }
