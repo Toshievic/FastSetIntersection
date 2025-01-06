@@ -578,13 +578,13 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
         int match_num = match_nums[depth][stage-1];
         for (int i=0; i<match_num; ++i) {
             assignment[agg_order[depth]] = intersect[i];
-            for (int x=0; x<cache_reset[agg_order[depth]].size(); ++x) {
-                auto [d, l] = cache_reset[agg_order[depth]][x];
-                start_from[d] = std::min(start_from[d], l);
-            }
-            start_from[depth] = cache_set[depth];
             if (depth == agg_plan.size() - 1) { ++result_size; }
             else {
+                for (int x=0; x<cache_reset[agg_order[depth]].size(); ++x) {
+                    auto [d, l] = cache_reset[agg_order[depth]][x];
+                    start_from[d] = std::min(start_from[d], l);
+                }
+                start_from[depth] = cache_set[depth];
                 std::vector<int> new_vec;
                 recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
             }
