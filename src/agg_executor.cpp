@@ -782,8 +782,8 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                 if (agg_plan[depth].size() == 1) {
                     while (first != last) {
                         assignment[general_order[depth]] = *first;
-                        for (int x=0; x<cache_reset[general_order[depth]].size(); ++x) {
-                            auto [d, l] = cache_reset[general_order[depth]][x];
+                        for (int x=0; x<cache_reset_hub[general_order[depth]].size(); ++x) {
+                            auto [d, l] = cache_reset_hub[general_order[depth]][x];
                             start_from[d] = std::min(start_from[d], l);
                         }
                         start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
@@ -930,8 +930,8 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                                     unsigned last_1 = g->agg_al_keys[ptr_store[depth][stage][use_agg[1]][i]+1];
                                     for (int k=first_1; k<last_1; ++k) {
                                         assignment[general_detail[depth][1]] = g->agg_al_crs[k];
-                                        for (int x=0; x<cache_reset[general_detail[depth][1]].size(); ++x) {
-                                            auto [d, l] = cache_reset[general_detail[depth][1]][x];
+                                        for (int x=0; x<cache_reset_hub[general_detail[depth][1]].size(); ++x) {
+                                            auto [d, l] = cache_reset_hub[general_detail[depth][1]][x];
                                             start_from[d] = std::min(start_from[d], l);
                                         }
                                         start_from[depth] = hub ? cache_set_hub[depth] : cache_set[depth];
