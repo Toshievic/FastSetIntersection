@@ -230,6 +230,10 @@ void AggExecutor::init() {
         }
         if (general_plan[i].size() > 1) { continue; }
         for (int j=0; j<general_plan[i][0].size(); ++j) {
+            std::sort(general_plan[i][0].begin(), general_plan[i][0].begin()+general_plan[i][0].size()-general_detail[i].size(),
+            [&assign_order_inv](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                return assign_order_inv[a.second] < assign_order_inv[b.second];
+            });
             int src = general_plan[i][0][j].second;
             int src_order = std::distance(order.begin(), std::find(order.begin(), order.end(), src));
             int dst_order = std::distance(order.begin(), std::find(order.begin(), order.end(), general_order[i]));
@@ -769,8 +773,8 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
             // hubの場合は2段ジャンプ
             while (hub_first != hub_last) {
                 assignment[general_detail[depth][stage]] = *hub_first;
-                for (int x=0; x<cache_reset[general_detail[depth][stage]].size(); ++x) {
-                    auto [d, l] = cache_reset[general_detail[depth][stage]][x];
+                for (int x=0; x<cache_reset_hub[general_detail[depth][stage]].size(); ++x) {
+                    auto [d, l] = cache_reset_hub[general_detail[depth][stage]][x];
                     start_from[d] = std::min(start_from[d], l);
                 }
                 int len = general_plan[depth].size()-1;
