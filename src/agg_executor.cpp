@@ -883,8 +883,8 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
             while (hub_first != hub_last) {
                 ++intersection_count;
                 assignment[general_detail[depth][hub_id]] = *hub_first;
-                for (int x=0; x<cache_reset[general_detail[depth][hub_id]].size(); ++x) {
-                    auto [d, l] = cache_reset[general_detail[depth][hub_id]][x];
+                for (int x=0; x<cache_reset_hub[general_detail[depth][hub_id]].size(); ++x) {
+                    auto [d, l] = cache_reset_hub[general_detail[depth][hub_id]][x];
                     start_from[d] = std::min(start_from[d], l);
                 }
                 int len = general_plan[depth].size()-1;
@@ -912,8 +912,8 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                     int match_num = match_nums[depth][stage];
                     for (int i=0; i<match_num; ++i) {
                         assignment[general_order[depth]] = intersect[i];
-                        for (int x=0; x<cache_reset[general_order[depth]].size(); ++x) {
-                            auto [d, l] = cache_reset[general_order[depth]][x];
+                        for (int x=0; x<cache_reset_hub[general_order[depth]].size(); ++x) {
+                            auto [d, l] = cache_reset_hub[general_order[depth]][x];
                             start_from[d] = std::min(start_from[d], l);
                         }
                         if (use_agg.size() > 0) {
@@ -921,8 +921,8 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
                             unsigned last_0 = g->agg_al_keys[ptr_store[depth][stage][use_agg[0]][i]+1];
                             for (int j=first_0; j<last_0; ++j) {
                                 assignment[general_detail[depth][0]] = g->agg_al_crs[j];
-                                for (int x=0; x<cache_reset[general_detail[depth][0]].size(); ++x) {
-                                    auto [d, l] = cache_reset[general_detail[depth][0]][x];
+                                for (int x=0; x<cache_reset_hub[general_detail[depth][0]].size(); ++x) {
+                                    auto [d, l] = cache_reset_hub[general_detail[depth][0]][x];
                                     start_from[d] = std::min(start_from[d], l);
                                 }
                                 if (use_agg.size() > 1) {
