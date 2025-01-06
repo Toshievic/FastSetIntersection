@@ -216,12 +216,12 @@ void AggExecutor::init() {
         for (int j=0; j<agg_plan[i].size(); ++j) {
             // agg_plan[i]内をキャッシュが効率的に使えるようにソート
             std::sort(agg_plan[i].begin(), agg_plan[i].begin()+agg_plan[i].size()-agg_detail[i].size(),
-            [&assign_order_inv](const std::pair<int, int>& a, const std::pair<int, int>& b) {
-                return assign_order_inv[a.second] < assign_order_inv[b.second];
+            [&order_inv](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                return order_inv[a.second] < order_inv[b.second];
             });
             int src = agg_plan[i][j].second;
-            int src_order = std::distance(assign_order.begin(), std::find(assign_order.begin(), assign_order.end(), src));
-            int dst_order = std::distance(assign_order.begin(), std::find(assign_order.begin(), assign_order.end(), agg_order[i]));
+            int src_order = std::distance(order.begin(), std::find(order.begin(), order.end(), src));
+            int dst_order = std::distance(order.begin(), std::find(order.begin(), order.end(), agg_order[i]));
             if (dst_order - src_order > 1) {
                 cache_set[i] = j+1;
                 cache_reset[src].push_back({i,j});
@@ -578,13 +578,13 @@ void AggExecutor::recursive_agg_cache_join(int depth, int stage, std::vector<int
         int match_num = match_nums[depth][stage-1];
         for (int i=0; i<match_num; ++i) {
             assignment[agg_order[depth]] = intersect[i];
+            for (int x=0; x<cache_reset[agg_order[depth]].size(); ++x) {
+                auto [d, l] = cache_reset[agg_order[depth]][x];
+                start_from[d] = std::min(start_from[d], l);
+            }
+            start_from[depth] = cache_set[depth];
             if (depth == agg_plan.size() - 1) { ++result_size; }
             else {
-                for (int x=0; x<cache_reset[agg_order[depth]].size(); ++x) {
-                    auto [d, l] = cache_reset[agg_order[depth]][x];
-                    start_from[d] = std::min(start_from[d], l);
-                }
-                start_from[depth] = cache_set[depth];
                 std::vector<int> new_vec;
                 recursive_agg_cache_join(depth+1, start_from[depth+1], new_vec);
             }
