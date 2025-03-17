@@ -9,7 +9,7 @@
         "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/exec_debug.out",
-        "args": ["--data_dirpath", "${cwd}/data/slashdot", "--query_filepath", "${cwd}/query/Q1_n_slashdot.txt", "--method", "agg"],
+        "args": ["--data_dirpath", "${cwd}/data/epinions", "--query_filepath", "${cwd}/query/Q4_n.txt", "--method", "agg"],
         "cwd": "${workspaceFolder}",
         },
         {
@@ -17,7 +17,7 @@
         "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/serialize_debug.out",
-        "args": ["--input_dirpath", "/Users/tito/research/data/dwh/labeled/epinions", "--output_dirpath", "${cwd}/data/epinions", "--items", "agg_al"],
+        "args": ["--input_dirpath", "/Users/tito/research/data/dwh/labeled/patent", "--output_dirpath", "${cwd}/data/patent", "--items", "agg_al"],
         "envFile": "${workspaceFolder}/.env",
         "cwd": "${workspaceFolder}",
         }

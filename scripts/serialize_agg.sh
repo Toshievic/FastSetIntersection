@@ -1,12 +1,13 @@
 export DATASET_BASE_PATH=/Users/tito/research/data/dwh/labeled/
+export SIZE_LIMIT=536870912
 exec_file=./serialize.out
 if [ "$1" = "debug" ]; then
     exec_file=./serialize_debug.out
 fi
 echo -e "exec_file: ${exec_file}"
-# echo -e "\nsoc-Epinions"
-# rm -r ${PWD}/data/epinions
-# ${exec_file} --input_dirpath ${DATASET_BASE_PATH}/epinions --output_dirpath ${PWD}/data/epinions --items agg_al
+echo -e "\nsoc-Epinions"
+rm -r ${PWD}/data/epinions
+${exec_file} --input_dirpath ${DATASET_BASE_PATH}/epinions --output_dirpath ${PWD}/data/epinions --items agg_al
 # echo -e "\nsoc-Slashdot"
 # rm -r ${PWD}/data/slashdot
 # ${exec_file} --input_dirpath ${DATASET_BASE_PATH}/slashdot --output_dirpath ${PWD}/data/slashdot --items agg_al
@@ -21,8 +22,8 @@ echo -e "exec_file: ${exec_file}"
 # ${exec_file} --input_dirpath ${DATASET_BASE_PATH}/google --output_dirpath ${PWD}/data/google --items agg_al
 # echo -e "\nweb-BerkStan"
 # ${exec_file} --input_dirpath ${DATASET_BASE_PATH}/berkstan --output_dirpath ${PWD}/data/berkstan --items agg_al
-echo -e "\nwiki-topCats"
-${exec_file} --input_dirpath ${DATASET_BASE_PATH}/wiki-topcats --output_dirpath ${PWD}/data/wiki-topcats --items agg_al
+# echo -e "\nwiki-topCats"
+# ${exec_file} --input_dirpath ${DATASET_BASE_PATH}/wiki-topcats --output_dirpath ${PWD}/data/wiki-topcats --items agg_al
 # echo -e "\ncit-Patents"
 # rm -r ${PWD}/data/patent
 # ${exec_file} --input_dirpath ${DATASET_BASE_PATH}/patent --output_dirpath ${PWD}/data/patent --items agg_al
